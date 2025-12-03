@@ -240,8 +240,8 @@ const Allaffiliate = () => {
           'Authorization': `Bearer ${localStorage.getItem('adminToken')}`
         },
         body: JSON.stringify({
-          commissionRate: commissionForm.bet / 100,
-          depositRate: commissionForm.deposit / 100,
+          commissionRate: commissionForm.bet,
+          depositRate: commissionForm.deposit ,
           cpaRate: commissionForm.registration,
           commissionType: 'hybrid'
         })

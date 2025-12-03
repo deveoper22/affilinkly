@@ -363,7 +363,6 @@ const Dashboard = () => {
                         <th className="py-3 px-4 text-left text-sm font-medium text-gray-600">Date</th>
                         <th className="py-3 px-4 text-left text-sm font-medium text-gray-600">Description</th>
                         <th className="py-3 px-4 text-left text-sm font-medium text-gray-600">Amount</th>
-                        <th className="py-3 px-4 text-left text-sm font-medium text-gray-600">Status</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -375,15 +374,6 @@ const Dashboard = () => {
                           <td className="py-3 px-4 text-sm text-gray-600">{earning.description}</td>
                           <td className="py-3 px-4 text-sm font-bold text-green-600">
                             +{formatCurrency(earning.amount)}
-                          </td>
-                          <td className="py-3 px-4">
-                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                              earning.status === 'pending'
-                                ? 'bg-yellow-100 text-yellow-600'
-                                : 'bg-green-100 text-green-600'
-                            }`}>
-                              {earning.status}
-                            </span>
                           </td>
                         </tr>
                       ))}

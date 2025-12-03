@@ -694,7 +694,7 @@ const Masterpayout = () => {
                 </div>
                 <button
                   onClick={loadMasterPayouts}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200 flex items-center"
+                  className="px-4 py-2 bg-theme_color text-white rounded-lg hover:bg-theme_color transition-colors duration-200 flex items-center"
                 >
                   <FaSync className="w-4 h-4 mr-2" />
                   Refresh
@@ -703,7 +703,7 @@ const Masterpayout = () => {
 
               <div className="overflow-x-auto">
                 <table className="w-full">
-                  <thead className="bg-blue-600">
+                  <thead className="bg-theme_color">
                     <tr>
                       <th className="px-6 py-4 text-left text-sm font-semibold text-white uppercase tracking-wider">
                         Payout ID

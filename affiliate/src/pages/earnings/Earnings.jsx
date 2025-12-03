@@ -376,7 +376,7 @@ const Earnings = () => {
             </div>
 
             {/* Master Affiliate Stats Overview */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
               <div className="bg-gradient-to-r from-purple-500 to-pink-500 rounded-[5px]  p-6 text-white shadow-xl">
                 <div className="flex items-center justify-between">
                   <div>
@@ -429,122 +429,11 @@ const Earnings = () => {
                 </div>
               </div>
 
-              <div className="bg-gradient-to-r from-blue-500 to-cyan-500 rounded-[5px]  p-6 text-white shadow-xl">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-white/80 text-sm font-medium">Override Commission</p>
-                    <p className="text-2xl font-bold mt-1">
-                      {earningsData.overrideCommission}%
-                    </p>
-                    <p className="text-xs text-white/70 mt-2">
-                      From sub-affiliates
-                    </p>
-                  </div>
-                  <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm">
-                    <FaPercentage className="text-white text-xl" />
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Network Performance Metrics */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-              <div className="bg-white rounded-[5px]  p-6 border border-gray-200 shadow-sm">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-600">Sub-Affiliates</p>
-                    <p className="text-2xl font-bold text-gray-900 mt-1">
-                      {earningsData.totalSubAffiliates}
-                    </p>
-                    <p className="text-xs text-gray-500 mt-2">
-                      Active: {earningsData.activeSubAffiliates}
-                    </p>
-                  </div>
-                  <div className="p-3 bg-purple-100 rounded-xl">
-                    <FaUserFriends className="text-purple-600 text-xl" />
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-white rounded-[5px]  p-6 border border-gray-200 shadow-sm">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-600">This Month</p>
-                    <p className="text-2xl font-bold text-gray-900 mt-1">
-                      {formatCurrency(earningsData.earningsThisMonth)}
-                    </p>
-                    <p className="text-xs text-gray-500 mt-2">
-                      Monthly earnings
-                    </p>
-                  </div>
-                  <div className="p-3 bg-green-100 rounded-xl">
-                    <FaCoins className="text-green-600 text-xl" />
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-white rounded-[5px] p-6 border border-gray-200 shadow-sm">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-600">Conversion Rate</p>
-                    <p className="text-2xl font-bold text-gray-900 mt-1">
-                      {earningsData.conversionRate.toFixed(2)}%
-                    </p>
-                    <p className="text-xs text-gray-500 mt-2">
-                      Network performance
-                    </p>
-                  </div>
-                  <div className="p-3 bg-orange-100 rounded-xl">
-                    <FaChartLine className="text-orange-600 text-xl" />
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Payout Eligibility Card */}
-            <div className="bg-gradient-to-r from-purple-500 to-pink-500 rounded-2xl p-6 mb-8 text-white shadow-xl">
-              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between">
-                <div className="flex items-center space-x-4">
-                  <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm">
-                    <FaBangladeshiTakaSign className="text-2xl" />
-                  </div>
-                  <div>
-                    <h3 className="text-xl font-semibold">Available for Payout</h3>
-                    <p className="opacity-90 text-lg">
-                      {formatCurrency(earningsData.pendingEarnings)} ready to withdraw
-                    </p>
-                    <p className="text-sm opacity-80 mt-1">
-                      Minimum payout: {formatCurrency(earningsData.minimumPayout)}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex space-x-3 mt-4 lg:mt-0">
-                  {earningsData.canRequestPayout ? (
-                    <button 
-                      onClick={handlePayoutRequest}
-                      className="px-6 py-3 bg-white text-purple-600 rounded-xl font-semibold hover:bg-gray-100 transition-colors shadow-md"
-                    >
-                      Request Payout
-                    </button>
-                  ) : (
-                    <div className="text-center">
-                      <p className="text-sm opacity-90">
-                        Need {formatCurrency(earningsData.minimumPayout - earningsData.pendingEarnings)} more
-                      </p>
-                      <button 
-                        disabled
-                        className="px-6 py-2 mt-1 bg-white/50 text-white rounded-xl font-medium text-sm cursor-not-allowed"
-                      >
-                        Request Payout
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
+        
             </div>
 
             {/* Two Column Layout */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div className="grid grid-cols-1 gap-8">
               {/* Earnings History Section */}
               <div className="bg-white rounded-[5px] border border-gray-200 shadow-sm overflow-hidden">
                 <div className="p-6 border-b border-gray-200">
@@ -606,9 +495,6 @@ const Earnings = () => {
                           <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             Amount
                           </th>
-                          <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Status
-                          </th>
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">
@@ -626,11 +512,7 @@ const Earnings = () => {
                             </td>
                             <td className="px-6 py-4">
                               <div className="flex items-center space-x-2">
-                                {getTypeBadge(earning.type)}
                                 <div>
-                                  <div className="text-sm font-medium text-gray-900">
-                                    {getEarningTypeLabel(earning.type)}
-                                  </div>
                                   <div className="text-sm text-gray-500">
                                     {earning.description || 'Master commission earned'}
                                   </div>
@@ -646,14 +528,6 @@ const Earnings = () => {
                               <div className="text-sm font-semibold text-gray-900">
                                 {formatCurrency(earning.amount)}
                               </div>
-                              {earning.overrideRate && (
-                                <div className="text-sm text-gray-500">
-                                  {earning.overrideRate}% override
-                                </div>
-                              )}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              {getStatusBadge(earning.status)}
                             </td>
                           </tr>
                         ))}
@@ -672,145 +546,6 @@ const Earnings = () => {
                     </button>
                   </div>
                 )}
-              </div>
-
-              {/* Sub-Affiliate Performance */}
-              <div className="bg-white rounded-[5px] border border-gray-200 shadow-sm overflow-hidden">
-                <div className="p-6 border-b border-gray-200">
-                  <h2 className="text-xl font-bold text-gray-900">
-                    Top Performing Sub-Affiliates
-                  </h2>
-                  <p className="text-gray-600 text-sm mt-1">
-                    Based on total earnings and override commissions
-                  </p>
-                </div>
-
-                <div className="overflow-x-auto">
-                  {isLoading ? (
-                    <div className="p-8 text-center">
-                      <p className="text-gray-600 mt-4">Loading performance data...</p>
-                    </div>
-                  ) : earningsData.subAffiliatePerformance.length === 0 ? (
-                    <div className="p-8 text-center">
-                      <p className="text-gray-600">No sub-affiliates yet</p>
-                      <p className="text-gray-500 text-sm mt-2">
-                        Start building your network to see performance data
-                      </p>
-                    </div>
-                  ) : (
-                    <table className="w-full">
-                      <thead className="bg-gray-50">
-                        <tr>
-                          <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Sub-Affiliate
-                          </th>
-                          <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Earnings
-                          </th>
-                          <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Your Commission
-                          </th>
-                          <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Status
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
-                        {earningsData.subAffiliatePerformance.slice(0, 6).map((sub) => (
-                          <tr key={sub.id} className="hover:bg-gray-50 transition-colors">
-                            <td className="px-6 py-4">
-                              <div>
-                                <div className="text-sm font-medium text-gray-900">
-                                  {sub.name}
-                                </div>
-                                <div className="text-sm text-gray-500">
-                                  {sub.email}
-                                </div>
-                              </div>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="text-sm font-semibold text-gray-900">
-                                {formatCurrency(sub.totalEarned)}
-                              </div>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="text-sm font-semibold text-purple-600">
-                                {formatCurrency(sub.overrideCommission)}
-                              </div>
-                              <div className="text-xs text-gray-500">
-                                {earningsData.overrideCommission}% override
-                              </div>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              {getStatusBadge(sub.status)}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  )}
-                </div>
-
-                {earningsData.subAffiliatePerformance.length > 6 && (
-                  <div className="px-6 py-4 border-t border-gray-200">
-                    <button 
-                      onClick={() => window.location.href = '/master/sub-affiliates'}
-                      className="w-full text-center text-purple-600 hover:text-purple-700 font-medium"
-                    >
-                      View All Sub-Affiliates
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Earnings Breakdown Section */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-8">
-              <div className="bg-white rounded-[5px] p-6 border border-gray-200 shadow-sm">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Earnings Breakdown</h3>
-                <div className="space-y-4">
-                  {Object.entries(earningsData.earningsSummary.byType).map(([type, data]) => (
-                    <div key={type} className="flex justify-between items-center">
-                      <div className="flex items-center space-x-3">
-                        <div className={`w-3 h-3 rounded-full ${
-                          type === 'override_commission' ? 'bg-purple-500' :
-                          type === 'bonus' ? 'bg-green-500' :
-                          type === 'incentive' ? 'bg-blue-500' :
-                          type === 'bet_commission' ? 'bg-orange-500' :
-                          type === 'deposit_commission' ? 'bg-indigo-500' :
-                          'bg-gray-500'
-                        }`}></div>
-                        <span className="text-gray-700">{data.label}</span>
-                      </div>
-                      <div className="text-right">
-                        <span className="font-semibold text-gray-900">{formatCurrency(data.total)}</span>
-                        <div className="text-xs text-gray-500">{data.count} transactions</div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="bg-white rounded-[5px] p-6 border border-gray-200 shadow-sm">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Master Commission Structure</h3>
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-600">Override Commission</span>
-                    <span className="font-semibold text-purple-600">{earningsData.overrideCommission}%</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-600">Bet Commission</span>
-                    <span className="font-semibold text-green-600">{earningsData.commissionRate}%</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-600">Deposit Commission</span>
-                    <span className="font-semibold text-green-600">{earningsData.depositRate}%</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-600">CPA Rate</span>
-                    <span className="font-semibold text-green-600">{formatCurrency(earningsData.cpaRate)}</span>
-                  </div>
-                </div>
               </div>
             </div>
           </div>

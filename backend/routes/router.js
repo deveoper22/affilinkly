@@ -128,63 +128,163 @@ router.post("/deposit-callback", async (req, res) => {
   try {
     const { userId, depositId, amount, method, affiliateCode } = req.body;
     
-    console.log("Deposit callback:", { userId, amount, affiliateCode });
+    console.log("Deposit callback:", { userId, amount, affiliateCode, depositId });
     
     const Affiliate = require("../models/Affiliate");
     const MasterAffiliate = require("../models/MasterAffiliate");
+    const mongoose = require('mongoose');
     
-    // Find user's affiliate (who referred them)
-    const affiliate = await Affiliate.findOne({
+    // FIRST: Find master affiliate by affiliate code
+    let masterAffiliate = null;
+    let regularAffiliate = null;
+    
+    if (affiliateCode) {
+      // Check if it's a master affiliate code
+      const isMasterCode = affiliateCode.toUpperCase().startsWith("MAST");
+      
+      if (isMasterCode) {
+        // Find master affiliate by code
+        masterAffiliate = await MasterAffiliate.findOne({
+          $or: [
+            { masterCode: affiliateCode.toUpperCase() },
+            { customMasterCode: affiliateCode.toUpperCase() }
+          ],
+          status: 'active'
+        });
+        
+        if (masterAffiliate) {
+          console.log(`Found master affiliate: ${masterAffiliate._id}`);
+          
+          // SECOND: Find affiliate by createdBy of master affiliate
+          regularAffiliate = await Affiliate.findOne({
+            _id: masterAffiliate.createdBy,
+            status: 'active'
+          });
+          
+          if (regularAffiliate) {
+            console.log(`Found regular affiliate who created master: ${regularAffiliate._id}`);
+            
+            // Process deposit commission for the affiliate (who created the master)
+            const depositRate = Number(regularAffiliate.depositRate) || 0;
+            const depositCommission = (amount / 100 ) * depositRate;
+            
+            if (depositCommission > 0) {
+              // Generate a valid ObjectId for the deposit since depositId is not a valid ObjectId
+              const validDepositId = new mongoose.Types.ObjectId();
+              
+              await regularAffiliate.addDepositCommission(
+                userId,
+                validDepositId, // Use generated ObjectId instead of string
+                amount,
+                depositRate,
+                `Deposit commission via master ${masterAffiliate.fullName}`,
+                { depositMethod: method, currency: 'BDT', originalDepositId: depositId } // Store original in metadata
+              );
+            }
+            
+            // Process override commission for master affiliate
+            const overrideRate = Number(masterAffiliate.masterEarnings?.overrideCommission) || 5;
+            const overrideCommission = (depositCommission /100) * masterAffiliate.depositRate;
+            
+            if (overrideCommission > 0) {
+              await masterAffiliate.addOverrideCommission(
+                overrideCommission,
+                regularAffiliate._id,
+                'deposit_commission',
+                depositCommission,
+                overrideRate,
+                `Deposit override commission from ${regularAffiliate.fullName}`
+              );
+            }
+            
+            return res.json({
+              success: true,
+              message: "Master affiliate commission processed",
+              depositCommission,
+              overrideCommission: overrideCommission || 0,
+              commissionType: "master_affiliate"
+            });
+          } else {
+            console.log(`No regular affiliate found for master createdBy: ${masterAffiliate.createdBy}`);
+          }
+        } else {
+          console.log(`No master affiliate found with code: ${affiliateCode}`);
+        }
+      }
+    }
+    
+    // THIRD: If no master affiliate found or no regular affiliate created the master,
+    // find regular affiliate directly by referred user
+    const regularAffiliateDirect = await Affiliate.findOne({
       'referredUsers.user': userId,
       status: 'active'
     });
     
-    if (!affiliate) {
+    if (!regularAffiliateDirect) {
+      console.log(`No affiliate found for user: ${userId}`);
       return res.json({ success: true, message: "No affiliate found for user" });
     }
     
-    // Calculate deposit commission
-    const depositRate = Number(affiliate.depositRate) || 0;
+    console.log(`Found regular affiliate by referred user: ${regularAffiliateDirect._id}`);
+    
+    // Calculate deposit commission for regular affiliate
+    const depositRate = Number(regularAffiliateDirect.depositRate) || 0;
     const depositCommission = amount * depositRate;
     
     if (depositCommission > 0) {
-      await affiliate.addDepositCommission(
+      // Generate a valid ObjectId for the deposit since depositId is not a valid ObjectId
+      const validDepositId = new mongoose.Types.ObjectId();
+      
+      await regularAffiliateDirect.addDepositCommission(
         userId,
-        depositId,
+        validDepositId, // Use generated ObjectId instead of string
         amount,
         depositRate,
         `Deposit commission`,
-        { depositMethod: method, currency: 'BDT' }
+        { depositMethod: method, currency: 'BDT', originalDepositId: depositId } // Store original in metadata
       );
     }
     
-    // Check for master affiliate
-    const master = await MasterAffiliate.findOne({
-      'subAffiliates.affiliate': affiliate._id,
+    // FOURTH: Check for master affiliate who has this affiliate as sub-affiliate
+    const masterOfAffiliate = await MasterAffiliate.findOne({
+      'subAffiliates.affiliate': regularAffiliateDirect._id,
       status: 'active'
     });
     
-    if (master) {
-      const overrideRate = Number(master.masterEarnings?.overrideCommission) || 5;
+    if (masterOfAffiliate) {
+      console.log(`Found master affiliate for regular affiliate: ${masterOfAffiliate._id}`);
+      
+      const overrideRate = Number(masterOfAffiliate.masterEarnings?.overrideCommission) || 5;
       const overrideCommission = depositCommission * (overrideRate / 100);
       
       if (overrideCommission > 0) {
-        await master.addOverrideCommission(
+        await masterOfAffiliate.addOverrideCommission(
           overrideCommission,
-          affiliate._id,
+          regularAffiliateDirect._id,
           'deposit_commission',
           depositCommission,
           overrideRate,
-          'Deposit override commission'
+          `Deposit override commission from ${regularAffiliateDirect.fullName}`
         );
       }
+      
+      return res.json({
+        success: true,
+        message: "Deposit commission processed with master affiliate override",
+        depositCommission,
+        overrideCommission: overrideCommission || 0,
+        commissionType: "regular_affiliate_with_master"
+      });
+    } else {
+      console.log(`No master affiliate found for regular affiliate: ${regularAffiliateDirect._id}`);
     }
     
     res.json({
       success: true,
-      message: "Deposit commission processed",
+      message: "Deposit commission processed (regular affiliate only)",
       depositCommission,
-      overrideCommission: overrideCommission || 0
+      overrideCommission: 0,
+      commissionType: "regular_affiliate_only"
     });
     
   } catch (error) {
