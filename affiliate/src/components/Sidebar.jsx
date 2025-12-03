@@ -89,7 +89,7 @@ const Sidebar = ({ isOpen }) => {
               key={label}
               to={to}
                className={({ isActive }) =>
-                `flex items-center w-full px-3 py-3 text-[15px] lg:text-[16px] cursor-pointer transition-all duration-300 group  ${
+                `flex items-center w-full text-nowrap px-3 py-3 text-[15px] lg:text-[16px] cursor-pointer transition-all duration-300 group  ${
                   isActive
                     ? ' text-theme_color font-semibold border-l-4 border-theme_color'
                     : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 hover:translate-x-1 hover:border-l-4 hover:border-gray-300'
