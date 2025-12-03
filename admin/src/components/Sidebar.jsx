@@ -60,7 +60,7 @@ const Sidebar = ({ isOpen }) => {
               key={label}
               to={to}
               className={({ isActive }) =>
-                `flex items-center w-full px-3 py-3 text-[15px] lg:text-[16px] cursor-pointer transition-all duration-300 group ${
+                `flex items-center w-full px-3 py-3 text-nowrap text-[15px] lg:text-[16px] cursor-pointer transition-all duration-300 group ${
                   isActive
                     ? 'bg-blue-600 text-white font-semibold shadow-lg shadow-blue-900/30 border-l-4 border-blue-400'
                     : 'text-gray-700 hover:bg-blue-800 hover:text-white hover:translate-x-1 hover:border-l-4 hover:border-blue-600'
