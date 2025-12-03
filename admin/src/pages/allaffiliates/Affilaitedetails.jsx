@@ -632,7 +632,7 @@ const AffiliateDetails = () => {
                     </div>
                     <div>
                       <label className="block text-sm font-bold text-gray-800 mb-1">Deposit Commission Rate</label>
-                      <p className="text-gray-900">{((selectedAffiliate.depositRate || 0) * 100).toFixed(1)}%</p>
+                      <p className="text-gray-900">{((selectedAffiliate.depositRate || 0) ).toFixed(1)}%</p>
                     </div>
                     <div>
                       <label className="block text-sm font-bold text-gray-800 mb-1">Registration Commission</label>
