@@ -30,7 +30,7 @@ import Header from '../../components/Header';
 import Sidebar from '../../components/Sidebar';
 import axios from 'axios';
 import toast from 'react-hot-toast';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate,NavLink } from 'react-router-dom';
 
 const AllMasterAffiliate = () => {
   const base_url = import.meta.env.VITE_API_KEY_Base_URL;
@@ -343,13 +343,29 @@ const AllMasterAffiliate = () => {
     try {
       const token = localStorage.getItem('affiliatetoken');
 
-      // Update commission structure
+      // Validate commission rate
+      const commissionRate = parseFloat(commissionData.commissionRate);
+      if (commissionRate < 0 || commissionRate > 50) {
+        toast.error('Commission rate must be between 0% and 50% for master affiliates');
+        setActionLoading(null);
+        return;
+      }
+
+      // Validate CPA rate
+      const cpaRate = parseFloat(commissionData.cpaRate);
+      if (cpaRate < 0) {
+        toast.error('CPA rate cannot be negative');
+        setActionLoading(null);
+        return;
+      }
+
+      // Update commission structure using the new route
       const response = await axios.put(
         `${base_url}/api/affiliate/master-affiliate/${selectedMasterAffiliate.id}/commission`,
         {
-          commissionRate: parseFloat(commissionData.commissionRate) || 0,
+          commissionRate: commissionRate,
           commissionType: commissionData.commissionType,
-          cpaRate: parseFloat(commissionData.cpaRate) || 0,
+          cpaRate: cpaRate,
           depositRate: parseFloat(commissionData.depositRate) || 0
         },
         {
@@ -363,52 +379,68 @@ const AllMasterAffiliate = () => {
       if (response.data.success) {
         await loadMasterAffiliatesData();
         setShowCommissionModal(false);
+        setCommissionData({
+          commissionRate: '',
+          commissionType: 'revenue_share',
+          cpaRate: '',
+          depositRate: ''
+        });
         toast.success('Commission structure updated successfully');
       } else {
         toast.error(response.data.message || 'Failed to update commission');
       }
     } catch (error) {
       console.error('Error updating commission:', error);
-      toast.error(error.response?.data?.message || 'Failed to update commission structure');
-    } finally {
-      setActionLoading(null);
-    }
-  };
-
-  const handleDeleteAffiliate = async () => {
-    if (!selectedMasterAffiliate) return;
-
-    setActionLoading('delete');
-    try {
-      const token = localStorage.getItem('affiliatetoken');
-
-      const response = await axios.delete(
-        `${base_url}/api/affiliate/master-affiliate/${selectedMasterAffiliate.id}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
-        }
-      );
-
-      if (response.data.success) {
-        await loadMasterAffiliatesData();
-        setShowDeleteModal(false);
-        toast.success('Master affiliate deleted successfully');
-      } else {
-        toast.error(response.data.message || 'Failed to delete affiliate');
-      }
-    } catch (error) {
-      console.error('Error deleting affiliate:', error);
       if (error.response?.status === 400) {
-        toast.error(error.response.data.message || 'Cannot delete affiliate with existing data');
+        toast.error(error.response.data.message || 'Validation error');
+      } else if (error.response?.status === 404) {
+        toast.error('Master affiliate not found');
       } else {
-        toast.error(error.response?.data?.message || 'Failed to delete affiliate');
+        toast.error(error.response?.data?.message || 'Failed to update commission structure');
       }
     } finally {
       setActionLoading(null);
     }
   };
+
+const handleDeleteAffiliate = async () => {
+  if (!selectedMasterAffiliate) return;
+
+  setActionLoading('delete');
+  try {
+    const token = localStorage.getItem('affiliatetoken');
+
+    // This is already calling the correct backend route
+    const response = await axios.delete(
+      `${base_url}/api/affiliate/master-affiliate/${selectedMasterAffiliate.id}`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      }
+    );
+ console.log(response)
+    if (response.data.success) {
+      await loadMasterAffiliatesData();
+      setShowDeleteModal(false);
+      setSelectedMasterAffiliate(null);
+      toast.success('Master affiliate deleted successfully');
+    } else {
+      toast.error(response.data.message || 'Failed to delete affiliate');
+    }
+  } catch (error) {
+    console.error('Error deleting affiliate:', error);
+    if (error.response?.status === 400) {
+      toast.error(error.response.data.message || 'Cannot delete affiliate with existing referrals or earnings');
+    } else if (error.response?.status === 404) {
+      toast.error('Master affiliate not found');
+    } else {
+      toast.error(error.response?.data?.message || 'Failed to delete affiliate');
+    }
+  } finally {
+    setActionLoading(null);
+  }
+};
 
   const openEditCommission = (affiliate) => {
     setSelectedMasterAffiliate(affiliate);
@@ -635,26 +667,10 @@ const AllMasterAffiliate = () => {
                       </th>
                       <th
                         className="px-6 py-4 text-left text-sm font-semibold text-white uppercase tracking-wider cursor-pointer border-b border-gray-200"
-                        onClick={() => handleSort('commissionRate')}
-                      >
-                        <div className="flex items-center space-x-2">
-                          <span>Commission</span>
-                        </div>
-                      </th>
-                      <th
-                        className="px-6 py-4 text-left text-sm font-semibold text-white uppercase tracking-wider cursor-pointer border-b border-gray-200"
                         onClick={() => handleSort('totalEarnings')}
                       >
                         <div className="flex items-center space-x-2">
                           <span>Earnings</span>
-                        </div>
-                      </th>
-                      <th
-                        className="px-6 py-4 text-left text-sm font-semibold text-white uppercase tracking-wider cursor-pointer border-b border-gray-200"
-                        onClick={() => handleSort('referralCount')}
-                      >
-                        <div className="flex items-center space-x-2">
-                          <span>Referrals</span>
                         </div>
                       </th>
                       <th
@@ -704,36 +720,11 @@ const AllMasterAffiliate = () => {
                           />
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center">
-                            <div className="bg-blue-50 rounded-lg p-2">
-                              <FaPercentage className="w-4 h-4 text-blue-600" />
-                            </div>
-                            <div className="ml-3">
-                              <div className="text-sm font-bold text-gray-900">
-                                {affiliate.commissionRate}%
-                              </div>
-                              <div className="text-xs text-gray-500 capitalize">
-                                {affiliate.commissionType?.replace('_', ' ') || 'revenue share'}
-                              </div>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm font-bold text-gray-900">
                             {formatCurrency(affiliate.totalEarnings)}
                           </div>
                           <div className="text-xs text-green-600 font-medium">
                             Pending: {formatCurrency(affiliate.pendingEarnings)}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-center">
-                            <div className="text-lg font-bold text-gray-900">
-                              {affiliate.referralCount}
-                            </div>
-                            <div className="text-xs text-green-600 font-medium">
-                              {affiliate.activeReferrals} active
-                            </div>
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
@@ -744,14 +735,13 @@ const AllMasterAffiliate = () => {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center space-x-2">
-                            <button
-                              onClick={() => viewAffiliateDetails(affiliate)}
+                            <NavLink
+                            to={`/affiliate/master-affiliate-details/${affiliate.id}`}
                               className="inline-flex items-center px-3 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors duration-200"
-                              disabled={actionLoading === affiliate.id}
                             >
                               <FaEye className="w-4 h-4 mr-2" />
                               View
-                            </button>
+                            </NavLink>
                             <button
                               onClick={() => openEditCommission(affiliate)}
                               className="inline-flex items-center px-3 py-2 border border-blue-300 rounded-lg text-sm font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 transition-colors duration-200"
@@ -1027,16 +1017,17 @@ const AllMasterAffiliate = () => {
                   <input
                     type="number"
                     step="0.1"
-                    min="0.1"
+                    min="0"
                     max="50"
                     value={commissionData.commissionRate}
                     onChange={(e) => setCommissionData({ ...commissionData, commissionRate: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="Enter commission rate"
+                    placeholder="Enter commission rate (0-50%)"
                   />
+                  <p className="text-xs text-gray-500 mt-1">Must be between 0% and 50%</p>
                 </div>
 
-                {/* <div>
+                <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Commission Type
                   </label>
@@ -1049,25 +1040,11 @@ const AllMasterAffiliate = () => {
                     <option value="cpa">CPA</option>
                     <option value="hybrid">Hybrid</option>
                   </select>
-                </div> */}
-     <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Deposit Rate (%)
-                  </label>
-                  <input
-                    type="number"
-                    step="0.1"
-                    min="0"
-                    max="50"
-                    value={commissionData.depositRate}
-                    onChange={(e) => setCommissionData({ ...commissionData, depositRate: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="Enter deposit rate"
-                  />
                 </div>
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                   Registration Commission (BDT)
+                    Registration Commission (BDT)
                   </label>
                   <input
                     type="number"
@@ -1078,16 +1055,38 @@ const AllMasterAffiliate = () => {
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     placeholder="Enter CPA rate"
                   />
+                  <p className="text-xs text-gray-500 mt-1">CPA rate cannot be negative</p>
                 </div>
 
-           
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Deposit Rate (%)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    min="0"
+                    value={commissionData.depositRate}
+                    onChange={(e) => setCommissionData({ ...commissionData, depositRate: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Enter deposit rate"
+                  />
+                </div>
               </div>
             </div>
 
             <div className="px-6 py-4 border-t border-gray-200 bg-gray-50 rounded-b-2xl">
               <div className="flex justify-end space-x-3">
                 <button
-                  onClick={() => setShowCommissionModal(false)}
+                  onClick={() => {
+                    setShowCommissionModal(false);
+                    setCommissionData({
+                      commissionRate: '',
+                      commissionType: 'revenue_share',
+                      cpaRate: '',
+                      depositRate: ''
+                    });
+                  }}
                   className="px-6 py-2 bg-gray-500 text-white rounded-[5px] hover:bg-gray-600 transition-colors duration-200 font-medium"
                 >
                   Cancel
@@ -1131,10 +1130,35 @@ const AllMasterAffiliate = () => {
 
             <div className="p-6">
               <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                <p className="text-red-800 text-sm">
-                  Are you sure you want to delete <strong>{selectedMasterAffiliate.fullName}</strong>?
-                  This will permanently remove all their data from the system.
-                </p>
+                <div className="flex items-start">
+                  <FaExclamationTriangle className="h-5 w-5 text-red-600 mr-3 mt-0.5" />
+                  <div>
+                    <p className="text-red-800 text-sm">
+                      Are you sure you want to delete <strong>{selectedMasterAffiliate.fullName}</strong>?
+                    </p>
+                    <p className="text-red-700 text-xs mt-2">
+                      This will permanently remove all their data from the system.
+                    </p>
+                    {(selectedMasterAffiliate.referralCount > 0 || selectedMasterAffiliate.totalEarnings > 0) && (
+                      <div className="mt-3 p-2 bg-red-100 rounded">
+                        <p className="text-red-800 text-xs font-semibold">
+                          ⚠️ Warning: This affiliate has:
+                        </p>
+                        <ul className="text-red-700 text-xs mt-1 ml-4 list-disc">
+                          {selectedMasterAffiliate.referralCount > 0 && (
+                            <li>{selectedMasterAffiliate.referralCount} referrals</li>
+                          )}
+                          {selectedMasterAffiliate.totalEarnings > 0 && (
+                            <li>BDT {selectedMasterAffiliate.totalEarnings} in earnings</li>
+                          )}
+                        </ul>
+                        <p className="text-red-800 text-xs mt-2 font-semibold">
+                          Consider suspending instead of deleting.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
 

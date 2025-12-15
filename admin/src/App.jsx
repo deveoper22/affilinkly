@@ -15,6 +15,7 @@ import Referels from './pages/referels/Referels'
 import Performance from './pages/performance/Performance'
 import AffiliateDetails from './pages/allaffiliates/Affilaitedetails'
 import Masteraffilaite from './pages/masteraffilaite/Masteraffilaite'
+import Masteraffiliatedetails from './pages/masteraffilaite/Masteraffiliatedetails'
 
 // Create Branding Context
 const BrandingContext = createContext();
@@ -239,7 +240,15 @@ const App = () => {
               </ProtectedRoute>
             }
           />
-         
+          <Route 
+            exact 
+            path="/affiliate/master-affiliates/:id" 
+            element={
+              <ProtectedRoute>
+                <Masteraffiliatedetails />
+              </ProtectedRoute>
+            }
+          />
           <Route 
             exact 
             path="/affiliate/payout" 

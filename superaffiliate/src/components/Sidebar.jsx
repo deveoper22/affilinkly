@@ -51,12 +51,12 @@ const Sidebar = ({ isOpen }) => {
       to: '/affiliate/payment-methods',
       description: 'Configure payout options'
     },
-    {
-      label: 'Performance',
-      icon: <FiBarChart2 className="text-[18px]" />,
-      to: '/affiliate/performance',
-      description: 'Analytics and reports'
-    },
+    // {
+    //   label: 'Performance',
+    //   icon: <FiBarChart2 className="text-[18px]" />,
+    //   to: '/affiliate/performance',
+    //   description: 'Analytics and reports'
+    // },
     {
       label: 'Payout History',
       icon: <FiTrendingUp className="text-[18px]" />,

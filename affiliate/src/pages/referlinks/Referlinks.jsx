@@ -474,21 +474,7 @@ const Referlinks = () => {
             </div>
 
             {/* Stats Overview */}
-            <div className="grid grid-cols-1 md:grid-cols-2  gap-6 mb-8">
-              <div className="bg-gradient-to-r from-purple-500 to-pink-500 rounded-[5px] p-6 text-white shadow-xl">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-white/80 text-sm font-medium">Total Clicks</p>
-                    <p className="text-2xl font-bold mt-1">
-                      {formatNumber(referralData.totalClicks)}
-                    </p>
-                  </div>
-                  <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm">
-                    <FaMousePointer className="text-white text-xl" />
-                  </div>
-                </div>
-              </div>
-
+            <div className="grid grid-cols-1  gap-6 mb-8">
               <div className="bg-gradient-to-r from-amber-500 to-orange-500 rounded-[5px] p-6 text-white shadow-xl">
                 <div className="flex items-center justify-between">
                   <div>
@@ -564,11 +550,6 @@ const Referlinks = () => {
                             </div>
                             
                             <p className="text-white/80 text-sm mb-4">{link.description}</p>
-                            
-                            <div className="flex items-center space-x-4 text-sm text-white/80 mb-4">
-                              <span>Clicks: <strong className="text-white">{formatNumber(link.clicks)}</strong></span>
-                              <span>Conversions: <strong className="text-white">{formatNumber(link.conversions)}</strong></span>
-                            </div>
 
                             <div className="space-y-3">
                               <div className="flex space-x-2">

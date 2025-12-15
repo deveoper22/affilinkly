@@ -82,7 +82,31 @@ const masterAffiliateSchema = new mongoose.Schema({
     instagram: String,
     linkedin: String
   },
-  
+  registeredUsers: [{
+  userId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
+  },
+  registeredAt: {
+    type: Date,
+    default: Date.now
+  },
+  userEmail: String,
+  userName: String,
+   claimedStatus: {
+    type: String,
+    enum: ['unclaimed', 'pending', 'claimed'],
+    default: 'unclaimed'
+  },
+}],
+
+// Add this counter field
+totalRegisteredUsers: {
+  type: Number,
+  default: 0
+},
+
   // Address Information
   address: {
     street: String,
@@ -121,6 +145,10 @@ const masterAffiliateSchema = new mongoose.Schema({
       default: 0,
       min: 0
     },
+     userRegistrationEarnings: {
+    type: Number,
+    default: 0
+  },
     pendingEarnings: {
       type: Number,
       default: 0,
@@ -185,7 +213,6 @@ const masterAffiliateSchema = new mongoose.Schema({
     },
     type: {
       type: String,
-      enum: ['override_commission', 'bonus', 'incentive', 'other'],
       required: true
     },
     description: {
@@ -205,7 +232,6 @@ const masterAffiliateSchema = new mongoose.Schema({
     },
     sourceType: {
       type: String,
-      enum: ['bet_commission', 'deposit_commission', 'withdrawal_commission', 'registration', 'other'],
       required: true
     },
     sourceAmount: {
@@ -552,31 +578,59 @@ masterAffiliateSchema.methods.removeSubAffiliate = async function(affiliateId) {
 };
 
 // Add override commission from sub-affiliate earnings
-masterAffiliateSchema.methods.addOverrideCommission = async function(
+masterAffiliateSchema.methods.addCommission = async function(
   amount,
-  sourceAffiliate,
-  sourceType,
-  sourceAmount,
+  type = 'override_commission', // Make sure this is a valid enum
+  sourceAffiliate = null,
+  sourceType = 'bet_commission', // Use valid enum value
+  sourceAmount = 0,
   overrideRate = null,
-  description = 'Override commission',
+  description = '',
   metadata = {}
 ) {
+  // Validate type
+  const validTypes = ['override_commission', 'bonus', 'incentive', 'other'];
+  if (!validTypes.includes(type)) {
+    type = 'other';
+  }
+  
+  // Validate sourceType
+  const validSourceTypes = ['bet_commission', 'deposit_commission', 'withdrawal_commission', 'registration', 'other'];
+  if (!validSourceTypes.includes(sourceType)) {
+    if (sourceType === 'deposit') {
+      sourceType = 'deposit_commission';
+    } else {
+      sourceType = 'other';
+    }
+  }
+  
   if (amount <= 0) {
     throw new Error('Commission amount must be positive');
   }
   
-  const rate = overrideRate || this.masterEarnings.overrideCommission;
+  // If this is an override commission
+  if (type === 'override_commission' && sourceAffiliate) {
+    return await this.addOverrideCommission(
+      amount,
+      sourceAffiliate,
+      sourceType,
+      sourceAmount,
+      overrideRate,
+      description,
+      metadata
+    );
+  }
   
-  // Create earning history record
+  // For other commission types (bonus, incentive, etc.)
   const earningRecord = {
     amount: amount,
-    type: 'override_commission',
-    description: description,
+    type: type,
+    description: description || `${type} added`,
     status: 'pending',
     sourceAffiliate: sourceAffiliate,
     sourceType: sourceType,
     sourceAmount: sourceAmount,
-    overrideRate: rate,
+    overrideRate: overrideRate || this.masterEarnings.overrideCommission,
     earnedAt: new Date(),
     metadata: metadata
   };
@@ -587,16 +641,6 @@ masterAffiliateSchema.methods.addOverrideCommission = async function(
   // Update master earnings totals
   this.masterEarnings.pendingEarnings += amount;
   this.masterEarnings.totalEarnings += amount;
-  
-  // Update sub-affiliate's total earned
-  const subAffiliate = this.subAffiliates.find(sub => 
-    sub.affiliate.toString() === sourceAffiliate.toString()
-  );
-  
-  if (subAffiliate) {
-    subAffiliate.totalEarned += amount;
-    subAffiliate.lastActivity = new Date();
-  }
   
   return await this.save();
 };
@@ -663,7 +707,98 @@ masterAffiliateSchema.methods.getPerformanceStats = function() {
   
   return stats;
 };
-
+// Add commission method (this is likely what you're calling)
+masterAffiliateSchema.methods.addCommission = async function(
+  amount,
+  type = 'override_commission',
+  sourceAffiliate = null,
+  sourceType = 'bet_commission',
+  sourceAmount = 0,
+  overrideRate = null,
+  description = '',
+  metadata = {}
+) {
+  if (amount <= 0) {
+    throw new Error('Commission amount must be positive');
+  }
+  
+  // If this is an override commission
+  if (type === 'override_commission' && sourceAffiliate) {
+    return await this.addOverrideCommission(
+      amount,
+      sourceAffiliate,
+      sourceType,
+      sourceAmount,
+      overrideRate,
+      description,
+      metadata
+    );
+  }
+  
+  // For other commission types (bonus, incentive, etc.)
+  const earningRecord = {
+    amount: amount,
+    type: type,
+    description: description || `${type} added`,
+    status: 'pending',
+    sourceAffiliate: sourceAffiliate,
+    sourceType: sourceType,
+    sourceAmount: sourceAmount,
+    overrideRate: overrideRate || this.masterEarnings.overrideCommission,
+    earnedAt: new Date(),
+    metadata: metadata
+  };
+  
+  // Add to earnings history
+  this.earningsHistory.push(earningRecord);
+  
+  // Update master earnings totals
+  this.masterEarnings.pendingEarnings += amount;
+  this.masterEarnings.totalEarnings += amount;
+  
+  return await this.save();
+};
+// Add override commission from sub-affiliate earnings
+masterAffiliateSchema.methods.addOverrideCommission = async function(
+  amount,
+  sourceAffiliate,
+  sourceType = 'bet_commission',
+  sourceAmount = 0,
+  overrideRate = null,
+  description = '',
+  metadata = {}
+) {
+  if (amount <= 0) {
+    throw new Error('Commission amount must be positive');
+  }
+  
+  if (!sourceAffiliate) {
+    throw new Error('Source affiliate is required for override commission');
+  }
+  
+  // Create earning record
+  const earningRecord = {
+    amount: amount,
+    type: 'override_commission',
+    description: description || `Override commission from sub-affiliate ${sourceAffiliate}`,
+    status: 'pending',
+    sourceAffiliate: sourceAffiliate,
+    sourceType: sourceType,
+    sourceAmount: sourceAmount,
+    overrideRate: overrideRate || this.masterEarnings.overrideCommission,
+    earnedAt: new Date(),
+    metadata: metadata
+  };
+  
+  // Add to earnings history
+  this.earningsHistory.push(earningRecord);
+  
+  // Update master earnings totals
+  this.masterEarnings.pendingEarnings += amount;
+  this.masterEarnings.totalEarnings += amount;
+  
+  return await this.save();
+};
 // Generate reset token
 masterAffiliateSchema.methods.generateResetToken = async function() {
   const crypto = require('crypto');
@@ -671,7 +806,6 @@ masterAffiliateSchema.methods.generateResetToken = async function() {
   this.resetPasswordExpires = Date.now() + 3600000;
   return await this.save();
 };
-
 // Static Methods
 masterAffiliateSchema.statics.generateUniqueMasterCode = async function() {
   const generateCode = () => {
@@ -758,5 +892,27 @@ masterAffiliateSchema.methods.toJSON = function() {
   delete master.lockUntil;
   return master;
 };
-
+masterAffiliateSchema.methods.addRegisteredUser = async function(userId, userEmail = '', userName = '') {
+  // Check if user already exists
+  const existingUser = this.registeredUsers.find(user => 
+    user.userId.toString() === userId.toString()
+  );
+  
+  if (existingUser) {
+    return this; // User already registered
+  }
+  
+  // Add user to registeredUsers array
+  this.registeredUsers.push({
+    userId: userId,
+    userEmail: userEmail,
+    userName: userName,
+    registeredAt: new Date()
+  });
+  
+  // Update counter
+  this.totalRegisteredUsers = this.registeredUsers.length;
+  
+  return await this.save();
+};
 module.exports = mongoose.model('MasterAffiliate', masterAffiliateSchema);

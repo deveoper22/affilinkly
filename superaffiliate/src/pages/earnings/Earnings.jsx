@@ -509,7 +509,7 @@ const Earnings = () => {
                           Date
                         </th>
                         <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Type & Description
+                          Type
                         </th>
                         <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Amount
@@ -532,32 +532,11 @@ const Earnings = () => {
                           <td className="px-6 py-4">
                             <div className="flex items-center space-x-2">
                               {getTypeBadge(transaction.type)}
-                              <div>
-                                <div className="text-sm font-medium text-gray-900">
-                                  {getEarningTypeLabel(transaction.type)}
-                                </div>
-                                <div className="text-sm text-gray-500">
-                                  {transaction.description || 'Commission earned'}
-                                </div>
-                                {transaction.metadata && (
-                                  <div className="text-xs text-gray-400 mt-1">
-                                    {transaction.metadata.betType && `Bet: ${transaction.metadata.betType}`}
-                                    {transaction.metadata.depositMethod &&
-                                      `Deposit: ${transaction.metadata.depositMethod}`}
-                                    {transaction.metadata.withdrawalMethod &&
-                                      `Withdrawal: ${transaction.metadata.withdrawalMethod}`}
-                                  </div>
-                                )}
-                              </div>
                             </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="text-sm font-semibold text-gray-900">
                               {formatCurrency(transaction.amount)}
-                            </div>
-                            <div className="text-sm text-gray-500">
-                              {transaction.commissionRate.toFixed(1)}% of{' '}
-                              {formatCurrency(transaction.sourceAmount)}
                             </div>
                           </td>
                         </tr>

@@ -146,7 +146,7 @@ const Dashboard = () => {
           lastMonthIncome: stats.lastMonthIncome || 0,
           commissionRate: stats.commissionRate || 0,
           depositRate: stats.depositRate || 0,
-          cpaRate: stats.cpaRate || 200,
+          cpaRate: stats.cpaRate,
           totalPayout: stats.totalPayout || 0,
           pendingPayout: stats.pendingPayout || 0,
           recentTransactions: stats.recentTransactions || []
@@ -497,25 +497,28 @@ const Dashboard = () => {
     </div>
   );
 
-  if (loading) {
-    return (
-      <section className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50/30">
-        <Header toggleSidebar={toggleSidebar} />
-        <div className="flex pt-[10vh]">
-          <Sidebar isOpen={isSidebarOpen} />
-          <main className={`transition-all duration-500 flex-1 p-6 overflow-y-auto h-[90vh] ${isSidebarOpen ? 'md:ml-[40%] lg:ml-[28%] xl:ml-[17%]' : 'ml-0'}`}>
-            <div className="flex justify-center items-center h-64">
-              <div className="text-center">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-                <p className="text-gray-600 mt-4 font-medium">Loading dashboard...</p>
+if (loading) {
+  return (
+    <section className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50/30">
+      <Header toggleSidebar={toggleSidebar} />
+      <div className="flex pt-[10vh]">
+        <Sidebar isOpen={isSidebarOpen} />
+        <main className={`transition-all duration-500 flex-1 p-6 overflow-y-auto h-[90vh] ${isSidebarOpen ? 'md:ml-[40%] lg:ml-[28%] xl:ml-[17%]' : 'ml-0'}`}>
+          <div className="flex justify-center items-center h-64">
+            <div className="text-center">
+              {/* Ball Loading System */}
+              <div className="flex justify-center space-x-2 mb-4">
+                <div className="animate-bounce h-4 w-4 bg-blue-600 rounded-full [animation-delay:-0.3s]"></div>
+                <div className="animate-bounce h-4 w-4 bg-blue-600 rounded-full [animation-delay:-0.15s]"></div>
+                <div className="animate-bounce h-4 w-4 bg-blue-600 rounded-full"></div>
               </div>
             </div>
-          </main>
-        </div>
-      </section>
-    );
-  }
-
+          </div>
+        </main>
+      </div>
+    </section>
+  );
+}
   return (
     <section className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50/30 font-poppins">
       <Header toggleSidebar={toggleSidebar} />
@@ -598,22 +601,6 @@ const Dashboard = () => {
                   })}
                 </div>
 
-                {/* Quick Actions */}
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-                  {quickActions.map((action, index) => (
-                    <button
-                      key={index}
-                      onClick={action.onClick}
-                      className="group bg-white border border-gray-200 rounded-xl p-4 hover:shadow-lg transition-all duration-300 hover:border-gray-300 text-left"
-                    >
-                      <div className={`p-3 rounded-lg bg-gradient-to-r ${action.gradient} text-white w-fit mb-3`}>
-                        <action.icon className="text-lg" />
-                      </div>
-                      <h4 className="font-semibold text-gray-900 mb-1">{action.title}</h4>
-                      <p className="text-xs text-gray-500">{action.description}</p>
-                    </button>
-                  ))}
-                </div>
 
                 {/* Commission Rates Summary */}
                 <div className="mt-8 bg-white rounded-[10px] border border-gray-200/50 p-6 mb-6">

@@ -1851,5 +1851,29 @@ Adminrouter.get("/system/report", async (req, res) => {
     handleError(res, error, "Failed to generate system report");
   }
 });
+Adminrouter.get("/master-affiliate/:id", async (req, res) => {
+  try {
+    const masterAffiliate = await MasterAffiliate.findOne({
+      _id: req.params.id,
+    }).select('-password -resetPasswordToken -resetPasswordExpires -emailVerificationToken');
 
+    if (!masterAffiliate) {
+      return res.status(404).json({
+        success: false,
+        message: "Master affiliate not found"
+      });
+    }
+
+    res.json({
+      success: true,
+      data: masterAffiliate
+    });
+  } catch (error) {
+    console.error("Error fetching master affiliate:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error"
+    });
+  }
+});
 module.exports = Adminrouter;

@@ -1,21 +1,24 @@
 import React, { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { 
-  FiHome, 
-  FiUser, 
-  FiDollarSign, 
-  FiCreditCard, 
-  FiShield, 
+import {
+  FiHome,
+  FiUser,
+  FiDollarSign,
+  FiCreditCard,
+  FiShield,
   FiTrendingUp,
   FiUsers,
   FiShare2,
   FiBarChart2,
-  FiLogOut 
+  FiLogOut,
+  FiChevronDown,
+  FiChevronUp
 } from 'react-icons/fi';
 
 const Sidebar = ({ isOpen }) => {
   const navigate = useNavigate();
   const [showLogoutPopup, setShowLogoutPopup] = useState(false);
+  const [showHistorySubmenu, setShowHistorySubmenu] = useState(false);
 
   const handleLogout = () => {
     localStorage.removeItem("admin");
@@ -56,18 +59,6 @@ const Sidebar = ({ isOpen }) => {
       to: '/affiliate/referral-links',
       description: 'Your affiliate links and codes'
     },
-    // {
-    //   label: 'Referrals',
-    //   icon: <FiUsers className="text-[18px]" />,
-    //   to: '/affiliate/referrals',
-    //   description: 'View your referral network'
-    // },
-    {
-      label: 'Performance',
-      icon: <FiBarChart2 className="text-[18px]" />,
-      to: '/affiliate/performance',
-      description: 'Analytics and reports'
-    },
     {
       label: 'Payout History',
       icon: <FiTrendingUp className="text-[18px]" />,
@@ -81,17 +72,17 @@ const Sidebar = ({ isOpen }) => {
       <aside
         className={`transition-all no-scrollbar duration-300 font-poppins fixed w-[70%] md:w-[40%] lg:w-[28%] xl:w-[17%] h-full z-[100] text-sm shadow-2xl pt-[12vh] p-4 ${
           isOpen ? 'left-0 top-0' : 'left-[-120%] top-0'
-        }  text-white overflow-y-auto`}
+        } text-white overflow-y-auto`}
       >
         <div className="space-y-1">
-          {menuItems.map(({ label, icon, to, description }) => (
+          {menuItems.map(({ label, icon, to }) => (
             <NavLink
               key={label}
               to={to}
-               className={({ isActive }) =>
-                `flex items-center w-full text-nowrap px-3 py-3 text-[15px] lg:text-[16px] cursor-pointer transition-all duration-300 group  ${
+              className={({ isActive }) =>
+                `flex items-center w-full text-nowrap px-3 py-3 text-[15px] lg:text-[16px] cursor-pointer transition-all duration-300 group ${
                   isActive
-                    ? ' text-theme_color font-semibold border-l-4 border-theme_color'
+                    ? 'text-theme_color font-semibold border-l-4 border-theme_color'
                     : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 hover:translate-x-1 hover:border-l-4 hover:border-gray-300'
                 }`
               }
@@ -106,10 +97,66 @@ const Sidebar = ({ isOpen }) => {
               </div>
             </NavLink>
           ))}
+
+          {/* History Menu with Submenus */}
+          <div className="space-y-1">
+            <button
+              onClick={() => setShowHistorySubmenu(!showHistorySubmenu)}
+              className="flex items-center w-full text-nowrap px-3 py-3 text-[15px] lg:text-[16px] cursor-pointer transition-all duration-300 group text-gray-600 hover:bg-gray-50 hover:text-gray-900 hover:translate-x-1 hover:border-l-4 hover:border-gray-300"
+            >
+              <div className="flex items-center gap-3 w-full justify-start">
+                <span className="group-hover:scale-110 transition-transform duration-300">
+                  <FiBarChart2 className="text-[18px]" />
+                </span>
+                <div className="flex-1 text-left">
+                  <div className="font-medium">History</div>
+                </div>
+                <span className="transition-transform duration-300">
+                  {showHistorySubmenu ? (
+                    <FiChevronUp className="text-[16px]" />
+                  ) : (
+                    <FiChevronDown className="text-[16px]" />
+                  )}
+                </span>
+              </div>
+            </button>
+
+            {/* Submenu Items */}
+            {showHistorySubmenu && (
+              <div className="ml-8 space-y-1">
+                <NavLink
+                  to="/affiliate/history/registration"
+                  className={({ isActive }) =>
+                    `flex items-center w-full px-3 py-2 text-[14px] cursor-pointer transition-all duration-300 group ${
+                      isActive
+                        ? 'text-theme_color font-semibold'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`
+                  }
+                >
+                  <span className="font-medium">Registration</span>
+                </NavLink>
+
+                <NavLink
+                  to="/affiliate/history/deposit"
+                  className={({ isActive }) =>
+                    `flex items-center w-full px-3 py-2 text-[14px] cursor-pointer transition-all duration-300 group ${
+                      isActive
+                        ? 'text-theme_color font-semibold'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`
+                  }
+                >
+                  <span className="font-medium">Deposit</span>
+                </NavLink>
+              </div>
+            )}
+          </div>
         </div>
+
         <button
           onClick={() => setShowLogoutPopup(true)}
-           className="flex items-center w-full px-3 py-3 text-[15px] lg:text-[16px] cursor-pointer transition-all duration-300 text-gray-600 hover:bg-red-50 hover:text-red-600 hover:translate-x-1 mt-6 group border border-transparent hover:border-red-200"
+          className="flex items-center w-full px-3 py-3 text-[15px] lg:text-[16px] cursor-pointer transition-all duration-300 text-gray-600 hover:bg-red-50 hover:text-red-600 hover:translate-x-1 mt-6 group border border-transparent hover:border-red-200"
         >
           <span className="flex items-center gap-3">
             <FiLogOut className="text-[18px] group-hover:scale-110 transition-transform duration-300" />

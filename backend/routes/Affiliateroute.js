@@ -2498,7 +2498,6 @@ Affiliateroute.get("/master-affiliate/:id", async (req, res) => {
   try {
     const masterAffiliate = await MasterAffiliate.findOne({
       _id: req.params.id,
-      role: 'master_affiliate'
     }).select('-password -resetPasswordToken -resetPasswordExpires -emailVerificationToken');
 
     if (!masterAffiliate) {
@@ -2526,7 +2525,6 @@ Affiliateroute.put('/master-affiliate/:id', async (req, res) => {
   try {
     const masterAffiliate = await MasterAffiliate.findOne({
       _id: req.params.id,
-      role: 'master_affiliate'
     });
       console.log(req.params.id)
     if (!masterAffiliate) {
@@ -2705,6 +2703,7 @@ Affiliateroute.put('/master-affiliate/:id/commission', async (req, res) => {
         });
       }
       masterAffiliate.commissionRate = commissionRate;
+      masterAffiliate.depositRate=depositRate;
     }
 
     
@@ -2746,6 +2745,7 @@ Affiliateroute.put('/master-affiliate/:id/commission', async (req, res) => {
 // Delete master affiliate
 Affiliateroute.delete('/master-affiliate/:id', async (req, res) => {
   try {
+    console.log(req.params)
     const masterAffiliate = await MasterAffiliate.findOne({
       _id: req.params.id,
       role: 'master_affiliate'
@@ -2759,14 +2759,14 @@ Affiliateroute.delete('/master-affiliate/:id', async (req, res) => {
     }
     
     // Check if master affiliate has any sub-affiliates or earnings
-    if (masterAffiliate.referralCount > 0 || masterAffiliate.totalEarnings > 0) {
+    if (masterAffiliate.referralCount > 0) {
       return res.status(400).json({
         success: false,
         message: 'Cannot delete master affiliate with existing referrals or earnings. Consider suspending instead.'
       });
     }
     
-    await Affiliate.findByIdAndDelete(req.params.id);
+    await MasterAffiliate.findByIdAndDelete(req.params.id);
     
     res.json({ 
       success: true,
@@ -3189,4 +3189,63 @@ Affiliateroute.put("/admin/payouts/bulk-status", async (req, res) => {
     });
   }
 });
+
+// ---------------status-changed--------------------
+Affiliateroute.put("/chaged-stauts-to-claimed",async(req,res)=>{
+  try {
+        const { masterAffiliateId, userId,claimedStatus } = req.body;
+         console.log(req.body)  
+        if (!userId || !claimedStatus) {
+          return res.status(400).json({
+            success: false,
+            message: "userId and status are required"
+          });
+        }
+
+        const masterAffiliate = await MasterAffiliate.findById(masterAffiliateId);
+        
+        if (!masterAffiliate) {
+          return res.status(404).json({
+            success: false,
+            message: "Master Affiliate not found"
+          });
+        }
+    
+        // Find the user in registeredUsers
+        const userIndex = masterAffiliate.registeredUsers.findIndex(user => 
+          user.userId.toString() === userId
+        );
+        
+        if (userIndex === -1) {
+          return res.status(404).json({
+            success: false,
+            message: "User not found in registered users"
+          });
+        }
+    
+        // Get current status
+        const currentStatus = masterAffiliate.registeredUsers[userIndex].claimedStatus;
+        
+        // Check if trying to change a claimed user
+        if (currentStatus === 'claimed') {
+          return res.status(400).json({
+            success: false,
+            message: "Cannot change status of already claimed users"
+          });
+        }
+        // Update claim status
+        masterAffiliate.registeredUsers[userIndex].claimedStatus = claimedStatus;
+        
+        // Save the changes
+        await masterAffiliate.save();
+    
+        res.json({
+          success: true,
+          message: `Status updated to ${claimedStatus} successfully`,
+          updatedUser: masterAffiliate.registeredUsers[userIndex]
+        });
+  } catch (error) {
+    console.log(error)
+  }
+})
 module.exports = Affiliateroute;

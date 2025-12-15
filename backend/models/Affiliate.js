@@ -603,31 +603,6 @@ affiliateSchema.methods.addCommission = async function(
   return await this.save();
 };
 
-// Method to add deposit commission
-affiliateSchema.methods.addDepositCommission = async function(
-  referredUser, 
-  depositId, 
-  depositAmount, 
-  commissionRate = null,
-  description = 'Deposit commission',
-  metadata = {}
-) {
-  const rate = commissionRate || this.depositRate;
-  const commissionAmount = depositAmount * rate;
-  
-  return await this.addCommission(
-    commissionAmount,
-    referredUser,
-    depositId,
-    'deposit',
-    rate,
-    depositAmount,
-    'deposit_commission',
-    description,
-    { ...metadata, depositMethod: metadata.depositMethod || 'unknown' }
-  );
-};
-
 // Method to add bet commission
 affiliateSchema.methods.addBetCommission = async function(
   referredUser, 

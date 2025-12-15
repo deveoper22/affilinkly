@@ -13,6 +13,8 @@ import Paymentmethod from './pages/paymentmethod/Paymentmethod'
 import Referlinks from './pages/referlinks/Referlinks'
 import Referels from './pages/referels/Referels'
 import Performance from './pages/performance/Performance'
+import Registrationhistory from './pages/history/Registrationhistory'
+import Deposithistory from './pages/history/Deposithistory'
 
 // Create Branding Context
 const BrandingContext = createContext();
@@ -218,6 +220,25 @@ const App = () => {
               </ProtectedRoute>
             }
           />
+            <Route 
+            exact 
+            path="/affiliate/history/registration" 
+            element={
+              <ProtectedRoute>
+                <Registrationhistory />
+              </ProtectedRoute>
+            }
+          />
+       <Route 
+            exact 
+            path="/affiliate/history/deposit" 
+            element={
+              <ProtectedRoute>
+                <Deposithistory />
+              </ProtectedRoute>
+            }
+          />
+
           {/* Catch all route - redirect to dashboard if authenticated, otherwise to login */}
           <Route 
             path="*" 

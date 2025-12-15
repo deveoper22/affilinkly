@@ -813,9 +813,6 @@ const Masteraffiliate = () => {
                           Master Code
                         </div>
                       </th>
-                      <th scope="col" className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-white uppercase tracking-wider">
-                        Network Stats
-                      </th>
                       <th scope="col" className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-white uppercase tracking-wider cursor-pointer" onClick={() => requestSort('masterEarnings.pendingEarnings')}>
                         <div className="flex items-center">
                           Earnings
@@ -858,20 +855,6 @@ const Masteraffiliate = () => {
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="space-y-1">
-                              <div className="flex items-center text-sm">
-                                <FaUsers className="text-gray-400 mr-2" />
-                                <span className="font-bold text-gray-900">{master.totalSubAffiliates || 0}</span>
-                                <span className="text-gray-500 ml-1">Sub-affiliates</span>
-                              </div>
-                              <div className="flex items-center text-sm">
-                                <FaPercentage className="text-gray-400 mr-2" />
-                                <span className="font-bold text-gray-900">{master.masterEarnings?.overrideCommission || 5}%</span>
-                                <span className="text-gray-500 ml-1">Override</span>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="space-y-1">
                               <div className="text-sm font-bold text-gray-900">
                                 {formatCurrency(master.masterEarnings?.pendingEarnings || 0)} BDT
                               </div>
@@ -894,39 +877,20 @@ const Masteraffiliate = () => {
                                   {master.status}
                                 </span>
                               </label>
-                              <div className="text-xs">
-                                <button
-                                  onClick={() => toggleVerificationStatus(master._id, master.verificationStatus)}
-                                  className={`px-2 py-1 rounded capitalize ${
-                                    master.verificationStatus === 'verified' 
-                                      ? 'bg-green-100 text-green-800' 
-                                      : master.verificationStatus === 'pending'
-                                      ? 'bg-yellow-100 text-yellow-800'
-                                      : master.verificationStatus === 'rejected'
-                                      ? 'bg-red-100 text-red-800'
-                                      : 'bg-gray-100 text-gray-800'
-                                  }`}
-                                >
-                                  {master.verificationStatus}
-                                </button>
-                              </div>
                             </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap font-bold">
                             <div className="text-sm text-gray-700">{formatDate(master.createdAt)}</div>
-                            {master.createdBy && (
-                              <div className="text-xs text-gray-500">By: {master.createdByRole}</div>
-                            )}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                             <div className="flex space-x-2">
-                              <button 
+                              <NavLink
+                              to={`/affiliate/master-affiliates/${master._id}`} 
                                 className="p-2 px-[8px] py-[7px] cursor-pointer bg-purple-600 text-white rounded-[3px] text-[16px] hover:bg-purple-700 shadow-sm transition-colors duration-200"
                                 title="View details"
-                                onClick={() => viewMasterDetails(master)}
                               >
                                 <FaEye />
-                              </button>
+                              </NavLink>
                               <button 
                                 className="p-2 px-[8px] py-[7px] cursor-pointer bg-blue-600 text-white rounded-[3px] text-[16px] hover:bg-blue-700 shadow-sm transition-colors duration-200"
                                 title="Edit master"
@@ -934,22 +898,6 @@ const Masteraffiliate = () => {
                               >
                                 <FaEdit />
                               </button>
-                              <button 
-                                className="p-2 px-[8px] py-[7px] cursor-pointer bg-green-600 text-white rounded-[3px] text-[16px] hover:bg-green-700 shadow-sm transition-colors duration-200"
-                                title="Add sub-affiliate"
-                                onClick={() => openAddSubModal(master._id)}
-                              >
-                                <FaNetworkWired />
-                              </button>
-                              {master.masterEarnings?.pendingEarnings > 0 && (
-                                <button 
-                                  className="p-2 px-[8px] py-[7px] cursor-pointer bg-yellow-600 text-white rounded-[3px] text-[16px] hover:bg-yellow-700 shadow-sm transition-colors duration-200"
-                                  title="Process payout"
-                                  onClick={() => openPayoutModal(master)}
-                                >
-                                  <FaMoneyBill />
-                                </button>
-                              )}
                               <button 
                                 className="p-2 px-[8px] py-[7px] cursor-pointer bg-red-600 text-white rounded-[3px] text-[16px] hover:bg-red-700 shadow-sm transition-colors duration-200"
                                 onClick={() => handleDelete(master._id)}
@@ -1548,7 +1496,7 @@ const Masteraffiliate = () => {
 
       {/* Master Affiliate Details Modal */}
       {showMasterDetails && selectedMaster && (
-        <div className="fixed inset-0 bg-[rgba(0,0,0,0.4)] bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-[rgba(0,0,0,0.4)] bg-opacity-50 flex items-center justify-center z-[10000] p-4">
           <div className="bg-white rounded-lg shadow-2xl max-w-6xl w-full max-h-[90vh] overflow-y-auto">
             <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center sticky top-0 bg-white z-10">
               <div className="flex items-center">
@@ -1924,12 +1872,6 @@ const Masteraffiliate = () => {
 
             <div className="px-6 py-4 border-t border-gray-200 bg-gray-50 flex justify-between sticky bottom-0">
               <div className="flex space-x-3">
-                <button
-                  onClick={() => openEditModal(selectedMaster)}
-                  className="px-4 py-2 bg-purple-600 text-white rounded-md text-sm font-medium hover:bg-purple-700 focus:outline-none transition-colors duration-200"
-                >
-                  Edit Master
-                </button>
                 {selectedMaster.masterEarnings?.pendingEarnings > 0 && (
                   <button
                     onClick={() => openPayoutModal(selectedMaster)}

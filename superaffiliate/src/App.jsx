@@ -16,6 +16,7 @@ import MasterAffiliateRegister from './pages/masteraffilaite/MasterAffiliateRegi
 import Allmasteraffiliate from './pages/masteraffilaite/Allmasteraffiliate'
 import Home from './pages/Home'
 import Masterpayout from './pages/masterpayout/Masterpayout'
+import Masteraffiliatedetails from './pages/masteraffilaite/Masteraffiliatedetails'
 
 // Set default document title
 document.title = 'Affiliate Platform'
@@ -194,6 +195,14 @@ const App = () => {
           element={
             <ProtectedRoute>
               <Allmasteraffiliate />
+            </ProtectedRoute>
+          }
+        />
+          <Route 
+          path="/affiliate/master-affiliate-details/:id" 
+          element={
+            <ProtectedRoute>
+              <Masteraffiliatedetails />
             </ProtectedRoute>
           }
         />

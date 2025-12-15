@@ -1774,4 +1774,225 @@ Masteraffiliateroute.get("/analytics", authenticateMasterAffiliate, async (req, 
   }
 });
 
+// Get registered users - simple route
+Masteraffiliateroute.get("/registered-users", authenticateMasterAffiliate, async (req, res) => {
+  try {
+    // Get master affiliate ID from authenticated request
+    const masterAffiliateId = req.user?._id || req.userId || req.masterAffiliate?._id;
+    
+    if (!masterAffiliateId) {
+      return res.status(401).json({
+        success: false,
+        message: "Authentication required"
+      });
+    }
+
+    // Get master affiliate with populated user data
+    const masterAffiliate = await MasterAffiliate.findById(masterAffiliateId);
+    
+    if (!masterAffiliate) {
+      return res.status(404).json({
+        success: false,
+        message: "Master Affiliate not found"
+      });
+    }
+
+    // Format the registered users data with proper claim status
+    const users = masterAffiliate.registeredUsers.map(user => {
+
+      return {
+        userId: user.userId?._id || user.userId,
+        userEmail: user.userEmail || user.userId?.email || '',
+        userName: user.userName || `${user.userId?.firstName || ''} ${user.userId?.lastName || ''}`.trim(),
+        registeredAt: user.registeredAt,
+        firstName: user.userId?.firstName || '',
+        lastName: user.userId?.lastName || '',
+        email: user.userId?.email || '',
+        phone: user.userId?.phone || '',
+        userCreatedAt: user.userId?.createdAt,
+        // Use claimedStatus (with small s) for consistency
+        claimedStatus: user.claimedStatus,
+        claimedAt: user.claimedAt,
+        claimedRequestAt: user.claimedRequestAt,
+      };
+    });
+
+    // Calculate claim statistics
+    const totalUsers = users.length;
+    const claimedUsers = users.filter(user => user.claimedStatus === 'claimed').length;
+    const pendingUsers = users.filter(user => user.claimedStatus === 'pending').length;
+    const unclaimedUsers = users.filter(user => user.claimedStatus === 'unclaimed').length;
+    
+    console.log('Registered users data:', {
+      totalUsers,
+      claimedUsers,
+      pendingUsers,
+      unclaimedUsers,
+      users: users.map(u => ({
+        userId: u.userId,
+        name: u.userName,
+        status: u.claimedStatus
+      }))
+    });
+
+    res.json({
+      success: true,
+      users: users,
+      stats: {
+        totalUsers: totalUsers,
+        claimedUsers: claimedUsers,
+        pendingUsers: pendingUsers,
+        unclaimedUsers: unclaimedUsers,
+        claimRate: totalUsers > 0 ? ((claimedUsers / totalUsers) * 100).toFixed(2) + '%' : '0%'
+      }
+    });
+  } catch (error) {
+    console.error("Get registered users error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error"
+    });
+  }
+});
+// Get deposit history for master affiliate
+Masteraffiliateroute.get("/deposit-history", authenticateMasterAffiliate, async (req, res) => {
+  try {
+    const masterAffiliate = await MasterAffiliate.findById(req.masterAffiliateId);
+    
+    if (!masterAffiliate) {
+      return res.status(404).json({
+        success: false,
+        message: "Master Affiliate not found"
+      });
+    }
+
+    // Get all deposit-related earnings from earningsHistory
+    const depositHistory = masterAffiliate.earningsHistory
+      .filter(earning => 
+        earning.sourceType === 'deposit_commission' || 
+        earning.type === 'deposit_commission' ||
+        earning.description?.toLowerCase().includes('deposit')
+      )
+      .map(earning => ({
+        id: earning._id,
+        date: earning.earnedAt,
+        amount: earning.amount,
+        description: earning.description || 'Deposit Commission',
+        sourceType: earning.sourceType,
+        status: earning.status,
+        sourceAffiliate: earning.sourceAffiliate,
+        metadata: earning.metadata
+      }))
+      .sort((a, b) => new Date(b.date) - new Date(a.date));
+
+    // Calculate deposit summary
+    const depositSummary = {
+      totalDepositCommissions: depositHistory.reduce((sum, deposit) => sum + deposit.amount, 0),
+      pendingDeposits: depositHistory.filter(d => d.status === 'pending').reduce((sum, d) => sum + d.amount, 0),
+      paidDeposits: depositHistory.filter(d => d.status === 'paid').reduce((sum, d) => sum + d.amount, 0),
+      totalCount: depositHistory.length
+    };
+
+    res.json({
+      success: true,
+      deposits: depositHistory,
+      summary: depositSummary,
+      totalCount: depositHistory.length
+    });
+  } catch (error) {
+    console.error("Get deposit history error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error"
+    });
+  }
+});
+// Simple route to update claim status
+Masteraffiliateroute.post("/update-claim", authenticateMasterAffiliate, async (req, res) => {
+  try {
+    const masterAffiliateId = req.masterAffiliateId;
+    const { userId, status } = req.body;
+ console.log(req.body)
+    if (!userId || !status) {
+      return res.status(400).json({
+        success: false,
+        message: "userId and status are required"
+      });
+    }
+
+    // Validate status - only allow pending and unclaimed
+    const validStatus = ['pending', 'unclaimed'];
+    if (!validStatus.includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid status. Valid status: 'pending' or 'unclaimed'"
+      });
+    }
+
+    const masterAffiliate = await MasterAffiliate.findById(masterAffiliateId);
+    
+    if (!masterAffiliate) {
+      return res.status(404).json({
+        success: false,
+        message: "Master Affiliate not found"
+      });
+    }
+
+    // Find the user in registeredUsers
+    const userIndex = masterAffiliate.registeredUsers.findIndex(user => 
+      user.userId.toString() === userId
+    );
+    
+    if (userIndex === -1) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found in registered users"
+      });
+    }
+
+    // Get current status
+    const currentStatus = masterAffiliate.registeredUsers[userIndex].claimedStatus;
+    
+    // Check if trying to change a claimed user
+    if (currentStatus === 'claimed') {
+      return res.status(400).json({
+        success: false,
+        message: "Cannot change status of already claimed users"
+      });
+    }
+
+    // Update claim status
+    masterAffiliate.registeredUsers[userIndex].claimedStatus = status;
+    
+    // Update timestamp based on status
+    if (status === 'pending') {
+      masterAffiliate.registeredUsers[userIndex].claimedRequestAt = new Date();
+    } else {
+      // Clear the request timestamp when unclaiming
+      masterAffiliate.registeredUsers[userIndex].claimedRequestAt = null;
+    }
+
+    // Clean up any old boolean claimed field if it exists
+    if (masterAffiliate.registeredUsers[userIndex].claimed !== undefined) {
+      delete masterAffiliate.registeredUsers[userIndex].claimed;
+    }
+
+    // Save the changes
+    await masterAffiliate.save();
+
+    res.json({
+      success: true,
+      message: `Status updated to ${status} successfully`,
+      updatedUser: masterAffiliate.registeredUsers[userIndex]
+    });
+  } catch (error) {
+    console.error("Update claim error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error"
+    });
+  }
+});
+
+
 module.exports = Masteraffiliateroute;
