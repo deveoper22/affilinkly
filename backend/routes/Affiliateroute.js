@@ -2417,8 +2417,6 @@ Affiliateroute.post("/master-affiliate/register", async (req, res) => {
       depositRate: masterCommissionSettings.depositRate,
       cpaRate: masterCommissionSettings.cpaRate,
       commissionType: masterCommissionSettings.commissionType,  
-      // Higher minimum payout for masters
-      minimumPayout: 2000,
       status: 'pending',
       verificationStatus: 'unverified'
     });

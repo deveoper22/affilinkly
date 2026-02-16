@@ -1994,5 +1994,759 @@ Masteraffiliateroute.post("/update-claim", authenticateMasterAffiliate, async (r
   }
 });
 
+// Get comprehensive earnings data with full details
+Masteraffiliateroute.get("/earnings/complete", authenticateMasterAffiliate, async (req, res) => {
+  try {
+    const masterAffiliate = await MasterAffiliate.findById(req.masterAffiliateId);
+    
+    if (!masterAffiliate) {
+      return res.status(404).json({
+        success: false,
+        message: "Master Affiliate not found"
+      });
+    }
 
+    // Get query parameters for filtering
+    const { 
+      type, 
+      status, 
+      startDate, 
+      endDate,
+      sourceType,
+      minAmount,
+      maxAmount,
+      search,
+      page = 1,
+      limit = 50,
+      sortBy = 'earnedAt',
+      sortOrder = 'desc'
+    } = req.query;
+
+    // Start with all earnings
+    let earnings = [...masterAffiliate.earningsHistory];
+
+    // Apply filters
+    if (type && type !== 'all') {
+      earnings = earnings.filter(earning => earning.type === type);
+    }
+
+    if (status && status !== 'all') {
+      earnings = earnings.filter(earning => earning.status === status);
+    }
+
+    if (sourceType && sourceType !== 'all') {
+      earnings = earnings.filter(earning => earning.sourceType === sourceType);
+    }
+
+    if (startDate) {
+      const start = new Date(startDate);
+      earnings = earnings.filter(earning => new Date(earning.earnedAt) >= start);
+    }
+
+    if (endDate) {
+      const end = new Date(endDate);
+      end.setHours(23, 59, 59, 999);
+      earnings = earnings.filter(earning => new Date(earning.earnedAt) <= end);
+    }
+
+    if (minAmount) {
+      earnings = earnings.filter(earning => earning.amount >= parseFloat(minAmount));
+    }
+
+    if (maxAmount) {
+      earnings = earnings.filter(earning => earning.amount <= parseFloat(maxAmount));
+    }
+
+    if (search) {
+      const searchLower = search.toLowerCase();
+      earnings = earnings.filter(earning => 
+        (earning.description && earning.description.toLowerCase().includes(searchLower)) ||
+        (earning.playerid && earning.playerid.toLowerCase().includes(searchLower)) ||
+        (earning.type && earning.type.toLowerCase().includes(searchLower))
+      );
+    }
+
+    // Sort earnings
+    earnings.sort((a, b) => {
+      let aValue = a[sortBy];
+      let bValue = b[sortBy];
+      
+      if (sortBy === 'earnedAt' || sortBy === 'paidAt') {
+        aValue = new Date(aValue).getTime();
+        bValue = new Date(bValue).getTime();
+      }
+      
+      if (sortOrder === 'desc') {
+        return bValue - aValue;
+      } else {
+        return aValue - bValue;
+      }
+    });
+
+    // Get unique source affiliate IDs
+    const sourceAffiliateIds = [...new Set(
+      earnings
+        .filter(e => e.sourceAffiliate)
+        .map(e => e.sourceAffiliate.toString())
+    )];
+
+    // Populate source affiliate information
+    const sourceAffiliates = await MasterAffiliate.find(
+      { _id: { $in: sourceAffiliateIds } },
+      'firstName lastName email masterCode'
+    );
+
+    // Create a map for quick lookup
+    const affiliateMap = {};
+    sourceAffiliates.forEach(aff => {
+      affiliateMap[aff._id.toString()] = {
+        id: aff._id,
+        firstName: aff.firstName,
+        lastName: aff.lastName,
+        email: aff.email,
+        masterCode: aff.masterCode
+      };
+    });
+
+    // Get unique player IDs to find user information
+    const playerIds = [...new Set(
+      earnings
+        .filter(e => e.playerid)
+        .map(e => e.playerid)
+    )];
+
+    // Try to find user information for player IDs
+    // Note: This assumes you have a User model. Adjust according to your setup
+    let userMap = {};
+    if (playerIds.length > 0) {
+      try {
+        // Try to find users by playerId - adjust this based on your User model
+        const User = require("../models/User"); // Adjust path as needed
+        const users = await User.find(
+          { playerId: { $in: playerIds } },
+          'firstName lastName email phone playerId registeredAt'
+        );
+        
+        users.forEach(user => {
+          userMap[user.playerId] = {
+            id: user._id,
+            firstName: user.firstName,
+            lastName: user.lastName,
+            email: user.email,
+            phone: user.phone,
+            playerId: user.playerId,
+            registeredAt: user.registeredAt
+          };
+        });
+      } catch (userError) {
+        console.log("User model not available or error fetching users:", userError.message);
+        // Continue without user data
+      }
+    }
+
+    // Enrich earnings with source and player information
+    const enrichedEarnings = earnings.map(earning => {
+      const enriched = earning.toObject ? earning.toObject() : { ...earning };
+      
+      // Add source affiliate info if available
+      if (enriched.sourceAffiliate) {
+        const affId = enriched.sourceAffiliate.toString();
+        if (affiliateMap[affId]) {
+          enriched.sourceAffiliateInfo = affiliateMap[affId];
+        }
+      }
+      
+      // Add player info if available
+      if (enriched.playerid && userMap[enriched.playerid]) {
+        enriched.playerInfo = userMap[enriched.playerid];
+      }
+      
+      // Add human-readable type label
+      enriched.typeLabel = getEarningTypeLabel(enriched.type);
+      
+      // Add formatted date
+      enriched.formattedDate = {
+        earnedAt: enriched.earnedAt ? new Date(enriched.earnedAt).toLocaleString() : null,
+        paidAt: enriched.paidAt ? new Date(enriched.paidAt).toLocaleString() : null,
+        daysAgo: enriched.earnedAt ? Math.floor((new Date() - new Date(enriched.earnedAt)) / (1000 * 60 * 60 * 24)) : null
+      };
+      
+      return enriched;
+    });
+
+    // Calculate statistics
+    const stats = {
+      totalEarnings: earnings.reduce((sum, e) => sum + (e.amount || 0), 0),
+      pendingEarnings: earnings.filter(e => e.status === 'pending').reduce((sum, e) => sum + (e.amount || 0), 0),
+      paidEarnings: earnings.filter(e => e.status === 'paid').reduce((sum, e) => sum + (e.amount || 0), 0),
+      cancelledEarnings: earnings.filter(e => e.status === 'cancelled').reduce((sum, e) => sum + (e.amount || 0), 0),
+      processingEarnings: earnings.filter(e => e.status === 'processing').reduce((sum, e) => sum + (e.amount || 0), 0),
+      totalTransactions: earnings.length,
+      
+      // Earnings by type
+      byType: {},
+      
+      // Earnings by status
+      byStatus: {
+        pending: earnings.filter(e => e.status === 'pending').length,
+        paid: earnings.filter(e => e.status === 'paid').length,
+        cancelled: earnings.filter(e => e.status === 'cancelled').length,
+        processing: earnings.filter(e => e.status === 'processing').length
+      },
+      
+      // Earnings by source type
+      bySourceType: {},
+      
+      // Monthly breakdown
+      byMonth: {},
+      
+      // Top earning sources
+      topSources: [],
+      
+      // Player statistics
+      playerStats: {
+        totalPlayers: playerIds.length,
+        playersWithMultipleEarnings: 0,
+        topPlayers: []
+      },
+      
+      // Affiliate statistics
+      affiliateStats: {
+        totalAffiliates: sourceAffiliateIds.length,
+        topAffiliates: []
+      }
+    };
+
+    // Calculate by type
+    earnings.forEach(earning => {
+      const type = earning.type || 'unknown';
+      if (!stats.byType[type]) {
+        stats.byType[type] = {
+          count: 0,
+          total: 0,
+          label: getEarningTypeLabel(type)
+        };
+      }
+      stats.byType[type].count++;
+      stats.byType[type].total += earning.amount || 0;
+    });
+
+    // Calculate by source type
+    earnings.forEach(earning => {
+      const sourceType = earning.sourceType || 'unknown';
+      if (!stats.bySourceType[sourceType]) {
+        stats.bySourceType[sourceType] = {
+          count: 0,
+          total: 0
+        };
+      }
+      stats.bySourceType[sourceType].count++;
+      stats.bySourceType[sourceType].total += earning.amount || 0;
+    });
+
+    // Calculate monthly breakdown
+    earnings.forEach(earning => {
+      if (earning.earnedAt) {
+        const date = new Date(earning.earnedAt);
+        const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+        const monthName = date.toLocaleString('default', { month: 'long', year: 'numeric' });
+        
+        if (!stats.byMonth[monthKey]) {
+          stats.byMonth[monthKey] = {
+            month: monthName,
+            count: 0,
+            total: 0
+          };
+        }
+        stats.byMonth[monthKey].count++;
+        stats.byMonth[monthKey].total += earning.amount || 0;
+      }
+    });
+
+    // Calculate top earning sources (affiliates)
+    const affiliateEarnings = {};
+    earnings.forEach(earning => {
+      if (earning.sourceAffiliate) {
+        const affId = earning.sourceAffiliate.toString();
+        if (!affiliateEarnings[affId]) {
+          affiliateEarnings[affId] = {
+            affiliateId: affId,
+            affiliateInfo: affiliateMap[affId] || null,
+            total: 0,
+            count: 0,
+            types: {}
+          };
+        }
+        affiliateEarnings[affId].total += earning.amount || 0;
+        affiliateEarnings[affId].count++;
+        
+        const type = earning.type || 'unknown';
+        if (!affiliateEarnings[affId].types[type]) {
+          affiliateEarnings[affId].types[type] = 0;
+        }
+        affiliateEarnings[affId].types[type] += earning.amount || 0;
+      }
+    });
+
+    stats.topSources = Object.values(affiliateEarnings)
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 10);
+
+    stats.affiliateStats.topAffiliates = stats.topSources;
+
+    // Calculate player earnings
+    const playerEarnings = {};
+    earnings.forEach(earning => {
+      if (earning.playerid) {
+        const playerId = earning.playerid;
+        if (!playerEarnings[playerId]) {
+          playerEarnings[playerId] = {
+            playerId: playerId,
+            playerInfo: userMap[playerId] || null,
+            total: 0,
+            count: 0,
+            firstEarning: earning.earnedAt,
+            lastEarning: earning.earnedAt,
+            types: {}
+          };
+        }
+        playerEarnings[playerId].total += earning.amount || 0;
+        playerEarnings[playerId].count++;
+        
+        if (new Date(earning.earnedAt) < new Date(playerEarnings[playerId].firstEarning)) {
+          playerEarnings[playerId].firstEarning = earning.earnedAt;
+        }
+        if (new Date(earning.earnedAt) > new Date(playerEarnings[playerId].lastEarning)) {
+          playerEarnings[playerId].lastEarning = earning.earnedAt;
+        }
+        
+        const type = earning.type || 'unknown';
+        if (!playerEarnings[playerId].types[type]) {
+          playerEarnings[playerId].types[type] = 0;
+        }
+        playerEarnings[playerId].types[type] += earning.amount || 0;
+      }
+    });
+
+    stats.playerStats.topPlayers = Object.values(playerEarnings)
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 10);
+    
+    stats.playerStats.playersWithMultipleEarnings = Object.values(playerEarnings)
+      .filter(p => p.count > 1).length;
+
+    // Get unique earning types for filter dropdown
+    const uniqueTypes = [...new Set(earnings.map(e => e.type))];
+    const uniqueStatuses = [...new Set(earnings.map(e => e.status))];
+    const uniqueSourceTypes = [...new Set(earnings.map(e => e.sourceType))];
+
+    // Pagination
+    const pageNum = parseInt(page);
+    const limitNum = parseInt(limit);
+    const startIndex = (pageNum - 1) * limitNum;
+    const endIndex = pageNum * limitNum;
+    const paginatedEarnings = enrichedEarnings.slice(startIndex, endIndex);
+
+    // Get date range
+    const dates = earnings.map(e => new Date(e.earnedAt)).filter(d => !isNaN(d));
+    const oldestDate = dates.length > 0 ? new Date(Math.min(...dates)) : null;
+    const newestDate = dates.length > 0 ? new Date(Math.max(...dates)) : null;
+
+    // Prepare response
+    const response = {
+      success: true,
+      data: {
+        earnings: paginatedEarnings,
+        stats: stats,
+        filters: {
+          available: {
+            types: uniqueTypes.map(t => ({
+              value: t,
+              label: getEarningTypeLabel(t)
+            })),
+            statuses: uniqueStatuses,
+            sourceTypes: uniqueSourceTypes
+          },
+          applied: {
+            type: type || null,
+            status: status || null,
+            startDate: startDate || null,
+            endDate: endDate || null,
+            sourceType: sourceType || null,
+            minAmount: minAmount || null,
+            maxAmount: maxAmount || null,
+            search: search || null
+          }
+        },
+        pagination: {
+          currentPage: pageNum,
+          totalPages: Math.ceil(earnings.length / limitNum),
+          totalItems: earnings.length,
+          itemsPerPage: limitNum,
+          hasNextPage: endIndex < earnings.length,
+          hasPrevPage: startIndex > 0
+        },
+        summary: {
+          totalEarnings: stats.totalEarnings,
+          totalTransactions: stats.totalTransactions,
+          dateRange: {
+            from: oldestDate,
+            to: newestDate
+          },
+          uniqueAffiliates: sourceAffiliateIds.length,
+          uniquePlayers: playerIds.length
+        }
+      }
+    };
+
+    res.json(response);
+
+  } catch (error) {
+    console.error("Comprehensive earnings error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message
+    });
+  }
+});
+
+// Helper function to get earning type label
+function getEarningTypeLabel(type) {
+  const typeLabels = {
+    'override_commission': 'Override Commission',
+    'bonus': 'Bonus',
+    'incentive': 'Incentive',
+    'bet_commission': 'Bet Commission',
+    'deposit_commission': 'Deposit Commission',
+    'withdrawal_commission': 'Withdrawal Commission',
+    'registration': 'Registration Bonus',
+    'first_deposit_commission': 'First Deposit Commission',
+    'cpa': 'CPA Commission',
+    'revenue_share': 'Revenue Share',
+    'other': 'Other'
+  };
+  
+  // If type is an ObjectId, try to map it
+  if (type && type.toString) {
+    // You might have a separate collection for earning types
+    // For now, return a generic label
+    return 'Commission';
+  }
+  
+  return typeLabels[type] || type || 'Unknown';
+}
+
+// Get earnings summary only (lighter version)
+Masteraffiliateroute.get("/earnings/summary", authenticateMasterAffiliate, async (req, res) => {
+  try {
+    const masterAffiliate = await MasterAffiliate.findById(req.masterAffiliateId);
+    
+    if (!masterAffiliate) {
+      return res.status(404).json({
+        success: false,
+        message: "Master Affiliate not found"
+      });
+    }
+
+    const earnings = masterAffiliate.earningsHistory || [];
+    
+    // Calculate summary statistics
+    const summary = {
+      totalEarnings: 0,
+      pendingEarnings: 0,
+      paidEarnings: 0,
+      cancelledEarnings: 0,
+      processingEarnings: 0,
+      byType: {},
+      byMonth: {},
+      recentActivity: [],
+      stats: {
+        thisWeek: 0,
+        thisMonth: 0,
+        thisYear: 0,
+        averagePerDay: 0,
+        bestDay: null,
+        bestDayAmount: 0
+      }
+    };
+
+    const now = new Date();
+    const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const oneMonthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    const oneYearAgo = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
+
+    // Daily earnings for average calculation
+    const dailyEarnings = {};
+
+    earnings.forEach(earning => {
+      const amount = earning.amount || 0;
+      const earnedAt = new Date(earning.earnedAt);
+      const dayKey = earnedAt.toISOString().split('T')[0];
+      
+      // Update totals by status
+      summary.totalEarnings += amount;
+      
+      switch(earning.status) {
+        case 'pending':
+          summary.pendingEarnings += amount;
+          break;
+        case 'paid':
+          summary.paidEarnings += amount;
+          break;
+        case 'cancelled':
+          summary.cancelledEarnings += amount;
+          break;
+        case 'processing':
+          summary.processingEarnings += amount;
+          break;
+      }
+
+      // Update by type
+      const type = earning.type || 'unknown';
+      if (!summary.byType[type]) {
+        summary.byType[type] = {
+          total: 0,
+          count: 0,
+          label: getEarningTypeLabel(type)
+        };
+      }
+      summary.byType[type].total += amount;
+      summary.byType[type].count++;
+
+      // Update monthly
+      const monthKey = `${earnedAt.getFullYear()}-${String(earnedAt.getMonth() + 1).padStart(2, '0')}`;
+      if (!summary.byMonth[monthKey]) {
+        summary.byMonth[monthKey] = {
+          total: 0,
+          count: 0
+        };
+      }
+      summary.byMonth[monthKey].total += amount;
+      summary.byMonth[monthKey].count++;
+
+      // Daily earnings for stats
+      if (!dailyEarnings[dayKey]) {
+        dailyEarnings[dayKey] = 0;
+      }
+      dailyEarnings[dayKey] += amount;
+
+      // Time-based stats
+      if (earnedAt >= oneWeekAgo) {
+        summary.stats.thisWeek += amount;
+      }
+      if (earnedAt >= oneMonthAgo) {
+        summary.stats.thisMonth += amount;
+      }
+      if (earnedAt >= oneYearAgo) {
+        summary.stats.thisYear += amount;
+      }
+    });
+
+    // Calculate best day
+    for (const [day, amount] of Object.entries(dailyEarnings)) {
+      if (amount > summary.stats.bestDayAmount) {
+        summary.stats.bestDayAmount = amount;
+        summary.stats.bestDay = day;
+      }
+    }
+
+    // Calculate average per day (over last 30 days or total if less)
+    const daysWithData = Object.keys(dailyEarnings).length;
+    summary.stats.averagePerDay = daysWithData > 0 ? summary.totalEarnings / daysWithData : 0;
+
+    // Get recent activity (last 10 earnings)
+    summary.recentActivity = earnings
+      .sort((a, b) => new Date(b.earnedAt) - new Date(a.earnedAt))
+      .slice(0, 10)
+      .map(e => ({
+        id: e._id,
+        amount: e.amount,
+        type: e.type,
+        typeLabel: getEarningTypeLabel(e.type),
+        status: e.status,
+        playerid: e.playerid,
+        earnedAt: e.earnedAt,
+        formattedDate: new Date(e.earnedAt).toLocaleString()
+      }));
+
+    res.json({
+      success: true,
+      summary
+    });
+
+  } catch (error) {
+    console.error("Earnings summary error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error"
+    });
+  }
+});
+
+// Get earnings by player/affiliate
+Masteraffiliateroute.get("/earnings/by-source/:sourceType/:sourceId", authenticateMasterAffiliate, async (req, res) => {
+  try {
+    const { sourceType, sourceId } = req.params;
+    
+    const masterAffiliate = await MasterAffiliate.findById(req.masterAffiliateId);
+    
+    if (!masterAffiliate) {
+      return res.status(404).json({
+        success: false,
+        message: "Master Affiliate not found"
+      });
+    }
+
+    let earnings = masterAffiliate.earningsHistory || [];
+    
+    // Filter by source type
+    if (sourceType === 'affiliate') {
+      earnings = earnings.filter(e => 
+        e.sourceAffiliate && e.sourceAffiliate.toString() === sourceId
+      );
+    } else if (sourceType === 'player') {
+      earnings = earnings.filter(e => e.playerid === sourceId);
+    }
+
+    // Get source info
+    let sourceInfo = null;
+    if (sourceType === 'affiliate') {
+      const affiliate = await MasterAffiliate.findById(sourceId, 'firstName lastName email masterCode');
+      if (affiliate) {
+        sourceInfo = {
+          id: affiliate._id,
+          firstName: affiliate.firstName,
+          lastName: affiliate.lastName,
+          email: affiliate.email,
+          masterCode: affiliate.masterCode,
+          type: 'affiliate'
+        };
+      }
+    } else if (sourceType === 'player') {
+      try {
+        const User = require("../models/User");
+        const user = await User.findOne({ playerId: sourceId }, 'firstName lastName email phone playerId');
+        if (user) {
+          sourceInfo = {
+            id: user._id,
+            firstName: user.firstName,
+            lastName: user.lastName,
+            email: user.email,
+            phone: user.phone,
+            playerId: user.playerId,
+            type: 'player'
+          };
+        }
+      } catch (error) {
+        console.log("User model not available");
+      }
+    }
+
+    // Calculate stats for this source
+    const stats = {
+      total: earnings.reduce((sum, e) => sum + (e.amount || 0), 0),
+      count: earnings.length,
+      byType: {},
+      byStatus: {},
+      firstEarning: earnings.length > 0 ? 
+        new Date(Math.min(...earnings.map(e => new Date(e.earnedAt)))) : null,
+      lastEarning: earnings.length > 0 ? 
+        new Date(Math.max(...earnings.map(e => new Date(e.earnedAt)))) : null
+    };
+
+    earnings.forEach(e => {
+      // By type
+      if (!stats.byType[e.type]) {
+        stats.byType[e.type] = {
+          total: 0,
+          count: 0,
+          label: getEarningTypeLabel(e.type)
+        };
+      }
+      stats.byType[e.type].total += e.amount || 0;
+      stats.byType[e.type].count++;
+
+      // By status
+      if (!stats.byStatus[e.status]) {
+        stats.byStatus[e.status] = 0;
+      }
+      stats.byStatus[e.status] += e.amount || 0;
+    });
+
+    res.json({
+      success: true,
+      sourceInfo,
+      stats,
+      earnings: earnings.sort((a, b) => new Date(b.earnedAt) - new Date(a.earnedAt))
+    });
+
+  } catch (error) {
+    console.error("Earnings by source error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error"
+    });
+  }
+});
+
+// Export earnings data (for CSV/Excel)
+Masteraffiliateroute.get("/earnings/export", authenticateMasterAffiliate, async (req, res) => {
+  try {
+    const masterAffiliate = await MasterAffiliate.findById(req.masterAffiliateId);
+    
+    if (!masterAffiliate) {
+      return res.status(404).json({
+        success: false,
+        message: "Master Affiliate not found"
+      });
+    }
+
+    const { format = 'json' } = req.query;
+    let earnings = masterAffiliate.earningsHistory || [];
+
+    // Sort by date
+    earnings = earnings.sort((a, b) => new Date(b.earnedAt) - new Date(a.earnedAt));
+
+    if (format === 'csv') {
+      // Format for CSV
+      const csvData = earnings.map(e => ({
+        'Date': new Date(e.earnedAt).toLocaleString(),
+        'Type': e.type,
+        'Description': e.description || '',
+        'Amount': e.amount || 0,
+        'Status': e.status,
+        'Player ID': e.playerid || '',
+        'Source Affiliate': e.sourceAffiliate || '',
+        'Source Amount': e.sourceAmount || 0,
+        'Override Rate': e.overrideRate || 0,
+        'Paid At': e.paidAt ? new Date(e.paidAt).toLocaleString() : ''
+      }));
+
+      res.json({
+        success: true,
+        format: 'csv',
+        data: csvData,
+        filename: `earnings_${new Date().toISOString().split('T')[0]}.csv`
+      });
+    } else {
+      // Default JSON format
+      res.json({
+        success: true,
+        format: 'json',
+        data: earnings,
+        total: earnings.length,
+        totalAmount: earnings.reduce((sum, e) => sum + (e.amount || 0), 0),
+        exportedAt: new Date()
+      });
+    }
+
+  } catch (error) {
+    console.error("Export earnings error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error"
+    });
+  }
+});
 module.exports = Masteraffiliateroute;

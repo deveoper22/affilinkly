@@ -244,7 +244,9 @@ totalRegisteredUsers: {
       required: true,
       min: 0
     },
-    
+    playerid:{
+     type: String,
+    },
     // Timestamps
     earnedAt: {
       type: Date,
@@ -347,8 +349,8 @@ totalRegisteredUsers: {
   // Payout Settings
   minimumPayout: {
     type: Number,
-    default: 2000,
-    min: 2000
+    default: 1000,
+    min: 1000
   },
   payoutSchedule: {
     type: String,
@@ -634,7 +636,7 @@ masterAffiliateSchema.methods.addCommission = async function(
     earnedAt: new Date(),
     metadata: metadata
   };
-  
+  console.log("earningRecord",earningRecord)
   // Add to earnings history
   this.earningsHistory.push(earningRecord);
   
@@ -708,6 +710,7 @@ masterAffiliateSchema.methods.getPerformanceStats = function() {
   return stats;
 };
 // Add commission method (this is likely what you're calling)
+// Update the addCommission method
 masterAffiliateSchema.methods.addCommission = async function(
   amount,
   type = 'override_commission',
@@ -722,6 +725,25 @@ masterAffiliateSchema.methods.addCommission = async function(
     throw new Error('Commission amount must be positive');
   }
   
+  // Validate type
+  const validTypes = ['override_commission', 'bonus', 'incentive', 'other', 'first_deposit_commission', 'deposit_commission'];
+  if (!validTypes.includes(type)) {
+    type = 'other';
+  }
+  
+  // Validate sourceType
+  const validSourceTypes = ['bet_commission', 'deposit_commission', 'withdrawal_commission', 'registration', 'other', 'deposit'];
+  if (!validSourceTypes.includes(sourceType)) {
+    if (sourceType === 'deposit') {
+      sourceType = 'deposit_commission';
+    } else {
+      sourceType = 'other';
+    }
+  }
+  
+  // Extract playerid from metadata if it exists
+  const playerid = metadata.playerid || null;
+  
   // If this is an override commission
   if (type === 'override_commission' && sourceAffiliate) {
     return await this.addOverrideCommission(
@@ -735,7 +757,7 @@ masterAffiliateSchema.methods.addCommission = async function(
     );
   }
   
-  // For other commission types (bonus, incentive, etc.)
+  // Create earning record with playerid at root level
   const earningRecord = {
     amount: amount,
     type: type,
@@ -746,8 +768,59 @@ masterAffiliateSchema.methods.addCommission = async function(
     sourceAmount: sourceAmount,
     overrideRate: overrideRate || this.masterEarnings.overrideCommission,
     earnedAt: new Date(),
-    metadata: metadata
+    playerid: playerid,  // Set playerid at root level
+    metadata: metadata    // Keep metadata as well
   };
+  
+  console.log("earningRecord with playerid:", earningRecord);
+  
+  // Add to earnings history
+  this.earningsHistory.push(earningRecord);
+  
+  // Update master earnings totals
+  this.masterEarnings.pendingEarnings += amount;
+  this.masterEarnings.totalEarnings += amount;
+  
+  return await this.save();
+};
+
+// Update the addOverrideCommission method
+masterAffiliateSchema.methods.addOverrideCommission = async function(
+  amount,
+  sourceAffiliate,
+  sourceType = 'bet_commission',
+  sourceAmount = 0,
+  overrideRate = null,
+  description = '',
+  metadata = {}
+) {
+  if (amount <= 0) {
+    throw new Error('Commission amount must be positive');
+  }
+  
+  if (!sourceAffiliate) {
+    throw new Error('Source affiliate is required for override commission');
+  }
+  
+  // Extract playerid from metadata if it exists
+  const playerid = metadata.playerid || null;
+  
+  // Create earning record with playerid at root level
+  const earningRecord = {
+    amount: amount,
+    type: 'override_commission',
+    description: description || `Override commission from sub-affiliate ${sourceAffiliate}`,
+    status: 'pending',
+    sourceAffiliate: sourceAffiliate,
+    sourceType: sourceType,
+    sourceAmount: sourceAmount,
+    overrideRate: overrideRate || this.masterEarnings.overrideCommission,
+    earnedAt: new Date(),
+    playerid: playerid,  // Set playerid at root level
+    metadata: metadata    // Keep metadata as well
+  };
+  
+  console.log("override earningRecord with playerid:", earningRecord);
   
   // Add to earnings history
   this.earningsHistory.push(earningRecord);

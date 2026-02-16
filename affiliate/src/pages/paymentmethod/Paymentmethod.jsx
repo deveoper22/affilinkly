@@ -74,7 +74,7 @@ const Paymentmethod = () => {
 
   // Payout settings state
   const [payoutSettings, setPayoutSettings] = useState({
-    minimumPayout: 2000,
+    minimumPayout: 1000,
     payoutSchedule: 'manual',
     autoPayout: false
   });

@@ -1077,16 +1077,32 @@ router.get("/postback", async (req, res) => {
 
 router.post("/deposit-callback", async (req, res) => {
   try {
-    const { userId, depositId, amount, method, affiliateCode, type } = req.body;
+    const { userId, depositId, amount, method, affiliateCode, type, playerid } = req.body;
     
-    console.log("Deposit callback:", { userId, amount, affiliateCode, depositId, type });
+    console.log("Deposit callback:", { userId, amount, affiliateCode, depositId, type, playerid });
+    
+    // Validate required fields
+    if (!userId) {
+      return res.status(400).json({ success: false, error: "userId is required" });
+    }
+    
     const depositAmount = Number(amount);
-    const userIdObj = new mongoose.Types.ObjectId(userId);
+    if (isNaN(depositAmount) || depositAmount <= 0) {
+      return res.status(400).json({ success: false, error: "Invalid amount" });
+    }
+    
+    // Validate userId format
+    let userIdObj;
+    try {
+      userIdObj = new mongoose.Types.ObjectId(userId);
+    } catch (error) {
+      return res.status(400).json({ success: false, error: "Invalid userId format" });
+    }
     
     // Check if this is a first deposit
     const isFirstDeposit = type === "first deposit";
     
-    // FIRST: Find master affiliate by affiliate code
+    // Find master affiliate by affiliate code
     let masterAffiliate = null;
     let regularAffiliate = null;
     
@@ -1136,29 +1152,29 @@ router.post("/deposit-callback", async (req, res) => {
             return res.json({
               success: true,
               message: "Commission skipped - user was previously claimed. Status set to unclaimed for next deposit.",
-              claimedStatus: "unclaimed", // Now it's unclaimed for next time
+              claimedStatus: "unclaimed",
               commissionProcessed: false,
               skipReason: "user_previously_claimed"
             });
           }
           
-          // ----------------------------first-deposit----------------------------
+          // ----------------------------FIRST DEPOSIT----------------------------
           if (isFirstDeposit) {
             const fixedCommissionAmount = depositAmount;
             
             if (fixedCommissionAmount > 0) {
               const validDepositId = new mongoose.Types.ObjectId();
               
+              // CORRECTED: Parameter order fixed with playerid added to metadata
               await masterAffiliate.addCommission(
-                fixedCommissionAmount,
-                userIdObj,
-                validDepositId,
-                'deposit',
-                100,
-                fixedCommissionAmount,
-                'first_deposit_commission',
-                `FIRST DEPOSIT commission (fixed amount)`,
-                { 
+                fixedCommissionAmount,                    // amount (number)
+                'first_deposit_commission',               // type (string)
+                userIdObj,                                 // sourceAffiliate (ObjectId)
+                'deposit',                                 // sourceType (string)
+                fixedCommissionAmount,                     // sourceAmount (number)
+                100,                                       // overrideRate (number)
+                `FIRST DEPOSIT commission (fixed amount)`, // description (string)
+                {                                          // metadata (object)
                   viaMasterAffiliate: true,
                   masterAffiliateCode: affiliateCode,
                   isFirstDeposit: true,
@@ -1169,16 +1185,18 @@ router.post("/deposit-callback", async (req, res) => {
                   fixedCommissionType: 'full_amount',
                   registeredUser: userRegistered,
                   claimedStatus: userClaimedStatus,
-                  claimedStatusUpdated: userRegistered // True if we updated the status
+                  claimedStatusUpdated: userRegistered ? "unclaimed → claimed" : "not_registered",
+                  playerid: playerid || null  // Add playerid to metadata
                 }
               );
             }
             
-            // Also add this user to master affiliate's referredUsers if not already
+            // Initialize referredUsers if it doesn't exist
             if (!masterAffiliate.referredUsers || !Array.isArray(masterAffiliate.referredUsers)) {
               masterAffiliate.referredUsers = [];
             }
             
+            // Add user to referredUsers if not already
             const existingUserIndex = masterAffiliate.referredUsers.findIndex(
               user => user.user && user.user.toString() === userIdObj.toString()
             );
@@ -1205,12 +1223,12 @@ router.post("/deposit-callback", async (req, res) => {
               claimedStatusUpdated: userRegistered ? "unclaimed → claimed" : "not_registered"
             });
 
-          // ----------------------------first-deposit----------------------------
+          // ----------------------------REGULAR DEPOSIT----------------------------
           } else {
             // Not first deposit - proceed with normal commission flow
             console.log(`Processing regular deposit commission for master affiliate`);
             
-            // SECOND: Find affiliate by createdBy of master affiliate
+            // Find affiliate by createdBy of master affiliate
             regularAffiliate = await Affiliate.findOne({
               _id: masterAffiliate.createdBy,
               status: 'active'
@@ -1222,28 +1240,30 @@ router.post("/deposit-callback", async (req, res) => {
               let depositCommission = 0;
               
               if (depositRate > 0) {
-                const totalcommissionamount = (depositAmount / 100) * regularAffiliate.depositRate;
-                console.log("totalcommissionamount", totalcommissionamount);
-                const masteraffialitecommission = (totalcommissionamount / 100) * masterAffiliate.depositRate;
-                console.log("masteraffialitecommission", masteraffialitecommission);
-                const reminigncommsion = totalcommissionamount - masteraffialitecommission;
-                console.log("reminigncommsion", reminigncommsion);
+                const totalCommissionAmount = (depositAmount / 100) * regularAffiliate.depositRate;
+                console.log("totalCommissionAmount", totalCommissionAmount);
+                
+                const masterAffiliateCommission = (totalCommissionAmount / 100) * masterAffiliate.depositRate;
+                console.log("masterAffiliateCommission", masterAffiliateCommission);
+                
+                const remainingCommission = totalCommissionAmount - masterAffiliateCommission;
+                console.log("remainingCommission", remainingCommission);
 
-                depositCommission = reminigncommsion;
+                depositCommission = remainingCommission;
                 
                 if (depositCommission > 0) {
                   const validDepositId = new mongoose.Types.ObjectId();
                   
+                  // CORRECTED: Parameter order fixed for regular affiliate with playerid added to metadata
                   await regularAffiliate.addCommission(
-                    depositCommission,
-                    userIdObj,
-                    validDepositId,
-                    'deposit',
-                    depositRate,
-                    depositAmount,
-                    'deposit_commission',
-                    `Deposit commission via master ${masterAffiliate.fullName}`,
-                    { 
+                    depositCommission,                    // amount (number)
+                    'deposit_commission',                  // type (string)
+                    validDepositId,                        // sourceAffiliate (ObjectId)
+                    'deposit',                              // sourceType (string)
+                    depositAmount,                          // sourceAmount (number)
+                    depositRate,                            // overrideRate (number)
+                    `Deposit commission via master ${masterAffiliate.fullName}`, // description (string)
+                    {                                       // metadata (object)
                       viaMasterAffiliate: true,
                       masterAffiliateId: masterAffiliate._id,
                       masterAffiliateCode: affiliateCode,
@@ -1252,35 +1272,37 @@ router.post("/deposit-callback", async (req, res) => {
                       originalDepositId: depositId,
                       registeredUser: userRegistered,
                       claimedStatus: userClaimedStatus,
-                      claimedStatusUpdated: userRegistered ? "unclaimed → claimed" : "not_registered"
+                      claimedStatusUpdated: userRegistered ? "unclaimed → claimed" : "not_registered",
+                      playerid: playerid || null  // Add playerid to metadata
                     }
                   );
                 }
               }
               
               // Process override commission for master affiliate
-              const totalcommissionamount = (depositAmount / 100) * regularAffiliate.depositRate;
-              console.log("totalcommissionamount", totalcommissionamount);
-              const masteraffialitecommission = (totalcommissionamount / 100) * masterAffiliate.depositRate;
-              console.log("masteraffialitecommission", masteraffialitecommission);
-              const reminigncommsion = totalcommissionamount - masteraffialitecommission;
-              console.log("reminigncommsion", reminigncommsion);
+              const totalCommissionAmount = (depositAmount / 100) * regularAffiliate.depositRate;
+              console.log("totalCommissionAmount for override", totalCommissionAmount);
+              
+              const masterAffiliateCommission = (totalCommissionAmount / 100) * masterAffiliate.depositRate;
+              console.log("masterAffiliateCommission for override", masterAffiliateCommission);
               
               const overrideRate = Number(masterAffiliate.masterEarnings?.overrideCommission) || 5;
-              const overrideCommission = masteraffialitecommission;
+              const overrideCommission = masterAffiliateCommission;
               
               if (overrideCommission > 0) {
+                // CORRECTED: Using addOverrideCommission with correct parameters and playerid added to metadata
                 await masterAffiliate.addOverrideCommission(
-                  overrideCommission,
-                  regularAffiliate._id,
-                  'deposit_commission',
-                  depositCommission,
-                  overrideRate,
-                  `Deposit override commission from ${regularAffiliate.fullName}`,
-                  { 
+                  overrideCommission,                       // amount (number)
+                  regularAffiliate._id,                     // sourceAffiliate (ObjectId)
+                  'deposit_commission',                     // sourceType (string)
+                  depositCommission,                         // sourceAmount (number)
+                  overrideRate,                              // overrideRate (number)
+                  `Deposit override commission from ${regularAffiliate.fullName}`, // description (string)
+                  {                                          // metadata (object)
                     registeredUser: userRegistered,
                     claimedStatus: userClaimedStatus,
-                    claimedStatusUpdated: userRegistered ? "unclaimed → claimed" : "not_registered"
+                    claimedStatusUpdated: userRegistered ? "unclaimed → claimed" : "not_registered",
+                    playerid: playerid || null  // Add playerid to metadata
                   }
                 );
               }
@@ -1297,17 +1319,48 @@ router.post("/deposit-callback", async (req, res) => {
               });
             } else {
               console.log(`No regular affiliate found for master createdBy: ${masterAffiliate.createdBy}`);
+              
+              // Even if no regular affiliate found, we might still want to process something
+              return res.json({
+                success: true,
+                message: "No regular affiliate found for this master",
+                registeredUser: userRegistered,
+                claimedStatus: userClaimedStatus
+              });
             }
           }
         } else {
           console.log(`No master affiliate found with code: ${affiliateCode}`);
+          return res.json({
+            success: true,
+            message: "No active master affiliate found with this code",
+            affiliateCode
+          });
         }
+      } else {
+        // Handle regular affiliate codes if needed
+        console.log(`Non-master affiliate code: ${affiliateCode}`);
+        return res.json({
+          success: true,
+          message: "Not a master affiliate code",
+          affiliateCode
+        });
       }
+    } else {
+      return res.json({
+        success: true,
+        message: "No affiliate code provided",
+        userId: userIdObj
+      });
     }
     
   } catch (error) {
     console.error("Deposit callback error:", error);
-    res.status(500).json({ success: false, error: error.message });
+    res.status(500).json({ 
+      success: false, 
+      error: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
   }
 });
 
